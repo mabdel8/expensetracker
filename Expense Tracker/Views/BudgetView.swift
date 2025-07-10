@@ -20,6 +20,8 @@ struct BudgetView: View {
     @State private var showingAddCategory = false
     @State private var budgetAmounts: [String: Double] = [:]
     @State private var incomeItems: [IncomeItem] = []
+    @State private var newIncomeName: String = ""
+    @State private var newIncomeAmount: String = ""
     
     private var expenseCategories: [Category] {
         allCategories.filter { $0.transactionType == .expense }
@@ -75,9 +77,6 @@ struct BudgetView: View {
         }
         .onAppear {
             loadBudgetData()
-        }
-        .sheet(isPresented: $showingAddIncome) {
-            AddIncomeView(incomeItems: $incomeItems, totalIncome: $totalIncome)
         }
     }
     
@@ -161,13 +160,48 @@ struct BudgetView: View {
                      }
                  }
                 
-                Button(action: { showingAddIncome = true }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Income")
-                    }
-                    .foregroundColor(.blue)
-                }
+                                 // Inline input row when adding income
+                 if showingAddIncome {
+                     HStack {
+                         TextField("Item Name", text: $newIncomeName)
+                             .textFieldStyle(PlainTextFieldStyle())
+                         
+                         Spacer()
+                         
+                         TextField("$0.00", text: $newIncomeAmount)
+                             .keyboardType(.decimalPad)
+                             .textFieldStyle(PlainTextFieldStyle())
+                             .multilineTextAlignment(.trailing)
+                             .frame(width: 100)
+                     }
+                     .padding(.vertical, 8)
+                 }
+                 
+                 HStack {
+                     Button(action: { 
+                         if showingAddIncome {
+                             cancelAddIncome()
+                         } else {
+                             showingAddIncome = true
+                         }
+                     }) {
+                         HStack {
+                             Image(systemName: "plus")
+                             Text("Add Income")
+                         }
+                         .foregroundColor(.blue)
+                     }
+                     
+                     Spacer()
+                     
+                     if showingAddIncome {
+                         Button("Done") {
+                             saveInlineIncome()
+                         }
+                         .disabled(newIncomeName.isEmpty || newIncomeAmount.isEmpty)
+                         .foregroundColor(.blue)
+                     }
+                 }
             }
             .padding()
             .background(Color.white)
@@ -275,6 +309,27 @@ struct BudgetView: View {
     private func deleteIncomeItem(at offsets: IndexSet) {
         incomeItems.remove(atOffsets: offsets)
         totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
+    }
+    
+    private func saveInlineIncome() {
+        guard let amount = Double(newIncomeAmount), amount > 0 else { return }
+        
+        let newItem = IncomeItem(name: newIncomeName, amount: amount)
+        incomeItems.append(newItem)
+        
+        // Update total income
+        totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
+        
+        // Reset the form
+        newIncomeName = ""
+        newIncomeAmount = ""
+        showingAddIncome = false
+    }
+    
+    private func cancelAddIncome() {
+        newIncomeName = ""
+        newIncomeAmount = ""
+        showingAddIncome = false
     }
     
     private func formatCurrency(_ amount: Double) -> String {
@@ -394,55 +449,7 @@ struct IncomeItem: Identifiable {
     var amount: Double
 }
 
-struct AddIncomeView: View {
-    @Binding var incomeItems: [IncomeItem]
-    @Binding var totalIncome: Double
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var incomeName: String = ""
-    @State private var incomeAmount: String = ""
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Income Details")) {
-                    TextField("Income name (e.g., Salary, Freelance)", text: $incomeName)
-                    
-                    TextField("Amount", text: $incomeAmount)
-                        .keyboardType(.decimalPad)
-                }
-            }
-            .navigationTitle("Add Income")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveIncome()
-                    }
-                    .disabled(incomeName.isEmpty || incomeAmount.isEmpty)
-                }
-            }
-        }
-    }
-    
-    private func saveIncome() {
-        guard let amount = Double(incomeAmount), amount > 0 else { return }
-        
-        let newItem = IncomeItem(name: incomeName, amount: amount)
-        incomeItems.append(newItem)
-        
-        // Update total income
-        totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
-        
-        dismiss()
-    }
-}
+
 
 enum CategoryGroup: String, CaseIterable {
     case food = "Food & Dining"
@@ -462,8 +469,4 @@ enum CategoryGroup: String, CaseIterable {
 #Preview {
     BudgetView()
         .modelContainer(for: [Transaction.self, Category.self, Budget.self], inMemory: true)
-}
-
-#Preview("Add Income") {
-    AddIncomeView(incomeItems: .constant([]), totalIncome: .constant(0))
 } 
