@@ -37,6 +37,10 @@ struct BudgetView: View {
         }
     }
     
+    private var currentMonthIncomeTransactions: [Transaction] {
+        currentMonthTransactions.filter { $0.type == .income }
+    }
+    
     private var totalSpent: Double {
         currentMonthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
@@ -82,6 +86,12 @@ struct BudgetView: View {
         }
         .onAppear {
             loadBudgetData()
+        }
+        .onChange(of: transactions) { _, _ in
+            // Recalculate total income when transactions change
+            let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
+            let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
+            totalIncome = manualIncomeTotal + transactionIncomeTotal
         }
     }
     
@@ -138,32 +148,44 @@ struct BudgetView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                                 // Display individual income items
-                 ForEach(incomeItems, id: \.id) { item in
-                     HStack {
-                         Text(item.name)
-                             .font(.body)
-                         Spacer()
-                         Text(formatCurrency(item.amount))
-                             .font(.body)
-                             .fontWeight(.medium)
-                     }
-                 }
-                 .onDelete(perform: deleteIncomeItem)
+                                                 // Display income transactions from the blue plus button
+                ForEach(currentMonthIncomeTransactions, id: \.id) { transaction in
+                    HStack {
+                        Text(transaction.name)
+                            .font(.body)
+                        Spacer()
+                        Text(formatCurrency(transaction.amount))
+                            .font(.body)
+                            .fontWeight(.medium)
+                    }
+                }
+                
+                // Display manual income items
+                ForEach(incomeItems, id: \.id) { item in
+                    HStack {
+                        Text(item.name)
+                            .font(.body)
+                        Spacer()
+                        Text(formatCurrency(item.amount))
+                            .font(.body)
+                            .fontWeight(.medium)
+                    }
+                }
+                .onDelete(perform: deleteIncomeItem)
                  
-                 if !incomeItems.isEmpty {
-                     Divider()
-                     
-                     HStack {
-                         Text("Total Income")
-                             .font(.body)
-                             .fontWeight(.bold)
-                         Spacer()
-                         Text(formatCurrency(totalIncome))
-                             .font(.body)
-                             .fontWeight(.bold)
-                     }
-                 }
+                                 if !incomeItems.isEmpty || !currentMonthIncomeTransactions.isEmpty {
+                    Divider()
+                    
+                    HStack {
+                        Text("Total Income")
+                            .font(.body)
+                            .fontWeight(.bold)
+                        Spacer()
+                        Text(formatCurrency(totalIncome))
+                            .font(.body)
+                            .fontWeight(.bold)
+                    }
+                }
                 
                                  // Inline input row when adding income
                  if showingAddIncome {
@@ -293,9 +315,10 @@ struct BudgetView: View {
             }
         }
         
-        // Load income items (in a real app, this would be from persistent storage)
-        // For now, we'll keep the existing income items
-        totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
+        // Calculate total income from both manual items and transactions
+        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
+        let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
+        totalIncome = manualIncomeTotal + transactionIncomeTotal
     }
     
     private func saveBudgets() {
@@ -306,7 +329,11 @@ struct BudgetView: View {
     
     private func deleteIncomeItem(at offsets: IndexSet) {
         incomeItems.remove(atOffsets: offsets)
-        totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
+        
+        // Update total income (includes both manual items and transactions)
+        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
+        let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
+        totalIncome = manualIncomeTotal + transactionIncomeTotal
     }
     
     private func saveInlineIncome() {
@@ -315,8 +342,10 @@ struct BudgetView: View {
         let newItem = IncomeItem(name: newIncomeName, amount: amount)
         incomeItems.append(newItem)
         
-        // Update total income
-        totalIncome = incomeItems.reduce(0) { $0 + $1.amount }
+        // Update total income (includes both manual items and transactions)
+        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
+        let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
+        totalIncome = manualIncomeTotal + transactionIncomeTotal
         
         // Reset the form
         newIncomeName = ""
