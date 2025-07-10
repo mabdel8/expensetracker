@@ -74,13 +74,6 @@ struct BudgetView: View {
             }
             .navigationTitle("Budget")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveBudgets()
-                    }
-                }
-            }
         }
         .onAppear {
             loadBudgetData()
@@ -139,7 +132,7 @@ struct BudgetView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("💰 Income")
+                    Text("Income")
                         .font(.headline)
                         .fontWeight(.bold)
                     Spacer()
@@ -290,11 +283,7 @@ struct BudgetView: View {
         totalIncome = manualIncomeTotal + transactionIncomeTotal
     }
     
-    private func saveBudgets() {
-        // Implementation for saving budgets
-        // This would create/update Budget objects in the model context
-        print("Saving budgets...")
-    }
+
     
     private func deleteIncomeItem(at offsets: IndexSet) {
         incomeItems.remove(atOffsets: offsets)
@@ -589,24 +578,7 @@ enum CategoryGroup: String, CaseIterable {
     case other = "Other"
     
     var title: String {
-        switch self {
-        case .food:
-            return "🍽️ Food & Dining"
-        case .transportation:
-            return "🚗 Transportation"
-        case .bills:
-            return "🧾 Bills & Utilities"
-        case .entertainment:
-            return "🎬 Entertainment"
-        case .health:
-            return "🏥 Health & Medical"
-        case .shopping:
-            return "🛍️ Shopping"
-        case .giving:
-            return "❤️ Giving"
-        case .other:
-            return "📦 Other"
-        }
+        return self.rawValue
     }
 }
 
