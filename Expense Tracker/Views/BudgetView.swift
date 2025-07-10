@@ -126,6 +126,7 @@ struct BudgetView: View {
         }
         .padding(.vertical, 20)
         .background(Color(.systemGray6))
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
     
     private var incomeSection: some View {
@@ -185,10 +186,10 @@ struct BudgetView: View {
             .padding()
             .background(Color.white)
             .cornerRadius(12)
-            .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         }
         .padding(.horizontal)
-        .padding(.bottom, 20)
+        .padding(.bottom, 24)
     }
     
     private var spendingCategoriesSection: some View {
@@ -455,11 +456,12 @@ struct CategoryGroupView: View {
                 }
             }
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
-        .padding(.horizontal)
+                    .padding()
+            .background(Color.white)
+            .cornerRadius(12)
+                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .padding(.horizontal)
+            .padding(.bottom, 8)
     }
     
     private func getSpentAmount(for category: Category) -> Double {
