@@ -16,12 +16,9 @@ struct BudgetView: View {
     
     @State private var selectedMonth = Date()
     @State private var totalIncome: Double = 0
-    @State private var showingAddIncome = false
     @State private var budgetAmounts: [String: Double] = [:]
     @State private var incomeItems: [IncomeItem] = []
     @State private var customBudgetItems: [CategoryGroup: [BudgetItem]] = [:]
-    @State private var newIncomeName: String = ""
-    @State private var newIncomeAmount: String = ""
     @State private var showingAddItemForGroup: CategoryGroup? = nil
     @State private var newItemName: String = ""
     @State private var newItemAmount: String = ""
@@ -187,48 +184,7 @@ struct BudgetView: View {
                     }
                 }
                 
-                                 // Inline input row when adding income
-                 if showingAddIncome {
-                     HStack {
-                         TextField("Item Name", text: $newIncomeName)
-                             .textFieldStyle(PlainTextFieldStyle())
-                         
-                         Spacer()
-                         
-                         TextField("$0.00", text: $newIncomeAmount)
-                             .keyboardType(.decimalPad)
-                             .textFieldStyle(PlainTextFieldStyle())
-                             .multilineTextAlignment(.trailing)
-                             .frame(width: 100)
-                     }
-                     .padding(.vertical, 8)
-                 }
-                 
-                 HStack {
-                     Button(action: { 
-                         if showingAddIncome {
-                             cancelAddIncome()
-                         } else {
-                             showingAddIncome = true
-                         }
-                     }) {
-                         HStack {
-                             Image(systemName: "plus")
-                             Text("Add Income")
-                         }
-                         .foregroundColor(.blue)
-                     }
-                     
-                     Spacer()
-                     
-                     if showingAddIncome {
-                         Button("Done") {
-                             saveInlineIncome()
-                         }
-                         .disabled(newIncomeName.isEmpty || newIncomeAmount.isEmpty)
-                         .foregroundColor(.blue)
-                     }
-                 }
+
             }
             .padding()
             .background(Color.white)
@@ -336,28 +292,7 @@ struct BudgetView: View {
         totalIncome = manualIncomeTotal + transactionIncomeTotal
     }
     
-    private func saveInlineIncome() {
-        guard let amount = Double(newIncomeAmount), amount > 0 else { return }
-        
-        let newItem = IncomeItem(name: newIncomeName, amount: amount)
-        incomeItems.append(newItem)
-        
-        // Update total income (includes both manual items and transactions)
-        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
-        let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
-        totalIncome = manualIncomeTotal + transactionIncomeTotal
-        
-        // Reset the form
-        newIncomeName = ""
-        newIncomeAmount = ""
-        showingAddIncome = false
-    }
-    
-    private func cancelAddIncome() {
-        newIncomeName = ""
-        newIncomeAmount = ""
-        showingAddIncome = false
-    }
+
     
     private func saveItemForGroup(_ group: CategoryGroup) {
         guard let amount = Double(newItemAmount), amount > 0 else { return }
