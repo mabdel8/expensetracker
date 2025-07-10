@@ -340,6 +340,14 @@ struct CategoryGroupView: View {
     let onSaveItem: () -> Void
     let onCancelItem: () -> Void
     
+    private var groupTotal: Double {
+        let categoryTotal = categories.reduce(0) { total, category in
+            total + (budgetAmounts[category.name] ?? 0)
+        }
+        let customItemsTotal = customBudgetItems.reduce(0) { $0 + $1.amount }
+        return categoryTotal + customItemsTotal
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -366,6 +374,21 @@ struct CategoryGroupView: View {
             // Display custom budget items
             ForEach(customBudgetItems, id: \.id) { item in
                 CustomBudgetItemRow(item: item)
+            }
+            
+            // Show total for this group if there are budgeted items
+            if groupTotal > 0 {
+                Divider()
+                
+                HStack {
+                    Text("Total \(group.title)")
+                        .font(.body)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text(formatCurrency(groupTotal))
+                        .font(.body)
+                        .fontWeight(.bold)
+                }
             }
             
             // Inline input row when adding item
@@ -423,6 +446,13 @@ struct CategoryGroupView: View {
         return currentTransactions
             .filter { $0.category?.name == category.name && $0.type == .expense }
             .reduce(0) { $0 + $1.amount }
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
 }
 
