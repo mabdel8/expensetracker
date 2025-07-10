@@ -45,20 +45,31 @@ struct DashboardView: View {
                             .foregroundColor(.blue)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
                 
                 // Calendar view
                 CalendarView(
                     selectedMonth: selectedMonth,
                     transactions: transactions
                 )
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+                .background(Color.white)
+                .cornerRadius(16)
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .padding(.horizontal)
+                
+                // Monthly Summary Card
+                MonthlySummaryCard(
+                    selectedMonth: selectedMonth,
+                    transactions: transactions,
+                    onMonthChange: { direction in
+                        changeMonth(direction)
+                    }
+                )
                 .padding(.horizontal)
                 
                 Spacer()
             }
-            .navigationTitle("Dashboard")
+            .navigationBarHidden(true)
             .gesture(
                 DragGesture()
                     .onEnded { value in
@@ -100,18 +111,20 @@ struct CalendarView: View {
     }()
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Day headers
-            HStack {
-                ForEach(calendar.shortWeekdaySymbols, id: \.self) { day in
-                    Text(day)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.vertical, 8)
+                 VStack(spacing: 0) {
+             // Day headers
+             HStack {
+                 ForEach(calendar.shortWeekdaySymbols, id: \.self) { day in
+                     Text(day)
+                         .font(.caption)
+                         .fontWeight(.medium)
+                         .foregroundColor(.secondary)
+                         .frame(maxWidth: .infinity)
+                 }
+             }
+             .padding(.vertical, 12)
+             
+             Divider()
             
             // Calendar grid
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 2) {
@@ -211,7 +224,7 @@ struct CalendarDayView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isToday ? Color.blue.opacity(0.1) : Color.clear)
+                .fill(isToday ? Color.blue.opacity(0.1) : Color.white)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
@@ -221,6 +234,144 @@ struct CalendarDayView: View {
     
     private var isToday: Bool {
         Calendar.current.isDate(date, inSameDayAs: Date())
+    }
+}
+
+struct MonthlySummaryCard: View {
+    let selectedMonth: Date
+    let transactions: [Transaction]
+    let onMonthChange: (Int) -> Void
+    
+    private let calendar = Calendar.current
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header with month/year
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(monthYearString)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("\(transactionCount) transactions")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Net Balance")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    Text("$\(balance, specifier: "%.2f")")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.black)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            
+            Divider()
+            
+            // Financial breakdown
+            HStack {
+                // Income section
+                VStack(spacing: 6) {
+                    HStack {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                        Text("Total Income")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    Text("$\(monthlyIncome, specifier: "%.2f")")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                    Text("\(incomeTransactionCount) payments")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                
+                Divider()
+                    .frame(height: 40)
+                
+                // Expenses section
+                VStack(spacing: 6) {
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                        Text("Total Expenses")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    Text("$\(monthlyExpenses, specifier: "%.2f")")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
+                    Text("\(expenseTransactionCount) purchases")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+            }
+                         .padding(.horizontal, 20)
+             .padding(.vertical, 16)
+         }
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    let threshold: CGFloat = 50
+                    if value.translation.width > threshold {
+                        onMonthChange(-1)
+                    } else if value.translation.width < -threshold {
+                        onMonthChange(1)
+                    }
+                }
+        )
+    }
+    
+    private var monthYearString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: selectedMonth)
+    }
+    
+    private var transactionCount: Int {
+        return monthlyTransactions.count
+    }
+    
+    private var incomeTransactionCount: Int {
+        return monthlyTransactions.filter { $0.type == .income }.count
+    }
+    
+    private var expenseTransactionCount: Int {
+        return monthlyTransactions.filter { $0.type == .expense }.count
+    }
+    
+    private var monthlyIncome: Double {
+        return monthlyTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var monthlyExpenses: Double {
+        return monthlyTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var balance: Double {
+        return monthlyIncome - monthlyExpenses
+    }
+    
+    private var monthlyTransactions: [Transaction] {
+        return transactions.filter { transaction in
+            calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
+        }
     }
 }
 
