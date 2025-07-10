@@ -45,7 +45,8 @@ struct BudgetView: View {
     private var totalBudgeted: Double {
         let categoryBudgets = budgetAmounts.values.reduce(0, +)
         let customBudgets = customBudgetItems.values.flatMap { $0 }.reduce(0) { $0 + $1.amount }
-        return categoryBudgets + customBudgets
+        let expenseTransactionsBudgets = currentMonthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+        return categoryBudgets + customBudgets + expenseTransactionsBudgets
     }
     
     private var remainingToBudget: Double {
@@ -89,6 +90,8 @@ struct BudgetView: View {
             let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
             let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
             totalIncome = manualIncomeTotal + transactionIncomeTotal
+            
+            // Note: totalBudgeted is a computed property that will automatically update
         }
     }
     
@@ -210,6 +213,7 @@ struct BudgetView: View {
                         budgetAmounts: $budgetAmounts,
                         customBudgetItems: customBudgetItems[group] ?? [],
                         currentTransactions: currentMonthTransactions,
+                        expenseTransactionsForGroup: getExpenseTransactionsForGroup(group),
                         showingAddItemForGroup: $showingAddItemForGroup,
                         newItemName: $newItemName,
                         newItemAmount: $newItemAmount,
@@ -254,6 +258,15 @@ struct BudgetView: View {
             return .giving
         default:
             return .other
+        }
+    }
+    
+    private func getExpenseTransactionsForGroup(_ group: CategoryGroup) -> [Transaction] {
+        return currentMonthTransactions.filter { transaction in
+            if transaction.type == .expense, let category = transaction.category {
+                return getCategoryGroup(category.name) == group
+            }
+            return false
         }
     }
     
@@ -334,6 +347,7 @@ struct CategoryGroupView: View {
     @Binding var budgetAmounts: [String: Double]
     let customBudgetItems: [BudgetItem]
     let currentTransactions: [Transaction]
+    let expenseTransactionsForGroup: [Transaction]
     @Binding var showingAddItemForGroup: CategoryGroup?
     @Binding var newItemName: String
     @Binding var newItemAmount: String
@@ -345,7 +359,8 @@ struct CategoryGroupView: View {
             total + (budgetAmounts[category.name] ?? 0)
         }
         let customItemsTotal = customBudgetItems.reduce(0) { $0 + $1.amount }
-        return categoryTotal + customItemsTotal
+        let expenseTransactionsTotal = expenseTransactionsForGroup.reduce(0) { $0 + $1.amount }
+        return categoryTotal + customItemsTotal + expenseTransactionsTotal
     }
     
     var body: some View {
@@ -369,6 +384,20 @@ struct CategoryGroupView: View {
                         budgetAmounts[category.name] = amount
                     }
                 )
+            }
+            
+            // Display expense transactions from the blue plus button
+            ForEach(expenseTransactionsForGroup, id: \.id) { transaction in
+                HStack {
+                    Text(transaction.name)
+                        .font(.body)
+                    
+                    Spacer()
+                    
+                    Text(formatCurrency(transaction.amount))
+                        .font(.body)
+                        .fontWeight(.medium)
+                }
             }
             
             // Display custom budget items
