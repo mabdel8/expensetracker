@@ -12,7 +12,9 @@ import SwiftData
 struct Expense_TrackerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Transaction.self,
+            Category.self,
+            Budget.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -26,7 +28,15 @@ struct Expense_TrackerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    setupDefaultCategories()
+                }
         }
         .modelContainer(sharedModelContainer)
+    }
+    
+    private func setupDefaultCategories() {
+        let context = sharedModelContainer.mainContext
+        DefaultCategories.createDefaultCategories(in: context)
     }
 }
