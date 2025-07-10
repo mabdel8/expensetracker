@@ -200,9 +200,11 @@ struct BudgetView: View {
             
             ForEach(CategoryGroup.allCases, id: \.self) { group in
                 if let categories = groupedCategories[group], !categories.isEmpty {
-                                                             CategoryGroupView(
+                    let filteredCategories = categories.filter { $0.name != group.rawValue }
+                    
+                    CategoryGroupView(
                         group: group,
-                        categories: categories,
+                        categories: filteredCategories,
                         budgetAmounts: $budgetAmounts,
                         customBudgetItems: customBudgetItems[group] ?? [],
                         currentTransactions: currentMonthTransactions,
@@ -344,7 +346,7 @@ struct CategoryGroupView: View {
     let onCancelItem: () -> Void
     
     private var groupTotal: Double {
-        let categoryTotal = categories.reduce(0) { total, category in
+        let categoryTotal = categories.filter { $0.name != group.rawValue }.reduce(0) { total, category in
             total + (budgetAmounts[category.name] ?? 0)
         }
         let customItemsTotal = customBudgetItems.reduce(0) { $0 + $1.amount }
@@ -364,7 +366,7 @@ struct CategoryGroupView: View {
                     .foregroundColor(.secondary)
             }
             
-            ForEach(categories, id: \.name) { category in
+            ForEach(categories.filter { $0.name != group.rawValue }, id: \.name) { category in
                 BudgetCategoryRow(
                     category: category,
                     budgetAmount: budgetAmounts[category.name] ?? 0,
