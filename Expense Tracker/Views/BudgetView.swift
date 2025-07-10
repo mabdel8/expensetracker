@@ -17,11 +17,14 @@ struct BudgetView: View {
     @State private var selectedMonth = Date()
     @State private var totalIncome: Double = 0
     @State private var showingAddIncome = false
-    @State private var showingAddCategory = false
     @State private var budgetAmounts: [String: Double] = [:]
     @State private var incomeItems: [IncomeItem] = []
+    @State private var customBudgetItems: [CategoryGroup: [BudgetItem]] = [:]
     @State private var newIncomeName: String = ""
     @State private var newIncomeAmount: String = ""
+    @State private var showingAddItemForGroup: CategoryGroup? = nil
+    @State private var newItemName: String = ""
+    @State private var newItemAmount: String = ""
     
     private var expenseCategories: [Category] {
         allCategories.filter { $0.transactionType == .expense }
@@ -39,7 +42,9 @@ struct BudgetView: View {
     }
     
     private var totalBudgeted: Double {
-        budgetAmounts.values.reduce(0, +)
+        let categoryBudgets = budgetAmounts.values.reduce(0, +)
+        let customBudgets = customBudgetItems.values.flatMap { $0 }.reduce(0) { $0 + $1.amount }
+        return categoryBudgets + customBudgets
     }
     
     private var remainingToBudget: Double {
@@ -221,29 +226,22 @@ struct BudgetView: View {
             
             ForEach(CategoryGroup.allCases, id: \.self) { group in
                 if let categories = groupedCategories[group], !categories.isEmpty {
-                    CategoryGroupView(
+                                                             CategoryGroupView(
                         group: group,
                         categories: categories,
                         budgetAmounts: $budgetAmounts,
-                        currentTransactions: currentMonthTransactions
+                        customBudgetItems: customBudgetItems[group] ?? [],
+                        currentTransactions: currentMonthTransactions,
+                        showingAddItemForGroup: $showingAddItemForGroup,
+                        newItemName: $newItemName,
+                        newItemAmount: $newItemAmount,
+                        onSaveItem: { saveItemForGroup(group) },
+                        onCancelItem: { cancelAddItemForGroup() }
                     )
                 }
             }
             
-            // Add Category Button
-            Button(action: { showingAddCategory = true }) {
-                HStack {
-                    Image(systemName: "plus")
-                    Text("Add Category")
-                }
-                .foregroundColor(.blue)
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white)
-                .cornerRadius(12)
-                .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
-            }
-            .padding(.horizontal)
+
         }
     }
     
@@ -332,6 +330,30 @@ struct BudgetView: View {
         showingAddIncome = false
     }
     
+    private func saveItemForGroup(_ group: CategoryGroup) {
+        guard let amount = Double(newItemAmount), amount > 0 else { return }
+        
+        // Create a new budget item
+        let budgetItem = BudgetItem(name: newItemName, amount: amount)
+        
+        // Add to custom budget items for this group
+        if customBudgetItems[group] == nil {
+            customBudgetItems[group] = []
+        }
+        customBudgetItems[group]?.append(budgetItem)
+        
+        // Reset the form
+        newItemName = ""
+        newItemAmount = ""
+        showingAddItemForGroup = nil
+    }
+    
+    private func cancelAddItemForGroup() {
+        newItemName = ""
+        newItemAmount = ""
+        showingAddItemForGroup = nil
+    }
+    
     private func formatCurrency(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -346,7 +368,13 @@ struct CategoryGroupView: View {
     let group: CategoryGroup
     let categories: [Category]
     @Binding var budgetAmounts: [String: Double]
+    let customBudgetItems: [BudgetItem]
     let currentTransactions: [Transaction]
+    @Binding var showingAddItemForGroup: CategoryGroup?
+    @Binding var newItemName: String
+    @Binding var newItemAmount: String
+    let onSaveItem: () -> Void
+    let onCancelItem: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -369,6 +397,55 @@ struct CategoryGroupView: View {
                         budgetAmounts[category.name] = amount
                     }
                 )
+            }
+            
+            // Display custom budget items
+            ForEach(customBudgetItems, id: \.id) { item in
+                CustomBudgetItemRow(item: item)
+            }
+            
+            // Inline input row when adding item
+            if showingAddItemForGroup == group {
+                HStack {
+                    TextField("Item Name", text: $newItemName)
+                        .textFieldStyle(PlainTextFieldStyle())
+                    
+                    Spacer()
+                    
+                    TextField("$0.00", text: $newItemAmount)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                }
+                .padding(.vertical, 8)
+            }
+            
+            // Add Item button row
+            HStack {
+                Button(action: { 
+                    if showingAddItemForGroup == group {
+                        onCancelItem()
+                    } else {
+                        showingAddItemForGroup = group
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Add Item")
+                    }
+                    .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                if showingAddItemForGroup == group {
+                    Button("Done") {
+                        onSaveItem()
+                    }
+                    .disabled(newItemName.isEmpty || newItemAmount.isEmpty)
+                    .foregroundColor(.blue)
+                }
             }
         }
         .padding()
@@ -443,7 +520,38 @@ struct BudgetCategoryRow: View {
     }
 }
 
+struct CustomBudgetItemRow: View {
+    let item: BudgetItem
+    
+    var body: some View {
+        HStack {
+            Text(item.name)
+                .font(.body)
+            
+            Spacer()
+            
+            Text(formatCurrency(item.amount))
+                .font(.body)
+                .fontWeight(.medium)
+        }
+        .contentShape(Rectangle())
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+    }
+}
+
 struct IncomeItem: Identifiable {
+    let id = UUID()
+    var name: String
+    var amount: Double
+}
+
+struct BudgetItem: Identifiable {
     let id = UUID()
     var name: String
     var amount: Double
