@@ -136,7 +136,7 @@ struct BudgetView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Income")
+                    Text("💰 Income")
                         .font(.headline)
                         .fontWeight(.bold)
                     Spacer()
@@ -466,15 +466,11 @@ struct BudgetCategoryRow: View {
     @State private var isEditing: Bool = false
     
     var body: some View {
-        HStack {
-            Image(systemName: category.iconName)
-                .foregroundColor(category.color)
-                .frame(width: 24, height: 24)
-            
-            Text(category.name)
-                .font(.body)
-            
-            Spacer()
+                HStack {
+                    Text(category.name)
+                        .font(.body)
+                
+                Spacer()
             
             if isEditing {
                 TextField("$0", text: $budgetText)
@@ -564,7 +560,24 @@ enum CategoryGroup: String, CaseIterable {
     case other = "Other"
     
     var title: String {
-        return self.rawValue
+        switch self {
+        case .food:
+            return "🍽️ Food & Dining"
+        case .transportation:
+            return "🚗 Transportation"
+        case .bills:
+            return "🧾 Bills & Utilities"
+        case .entertainment:
+            return "🎬 Entertainment"
+        case .health:
+            return "🏥 Health & Medical"
+        case .shopping:
+            return "🛍️ Shopping"
+        case .giving:
+            return "❤️ Giving"
+        case .other:
+            return "📦 Other"
+        }
     }
 }
 
