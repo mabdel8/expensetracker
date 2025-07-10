@@ -12,134 +12,55 @@ struct BudgetView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var budgets: [Budget]
     @Query private var allCategories: [Category]
+    @Query private var transactions: [Transaction]
     
-    @State private var paycheckAmount: String = ""
-    @State private var paymentFrequency: PaymentFrequency = .monthly
-    @State private var showingAddBudget = false
-    @State private var budgetAmounts: [String: String] = [:]
+    @State private var selectedMonth = Date()
+    @State private var totalIncome: Double = 0
+    @State private var showingAddIncome = false
+    @State private var showingAddCategory = false
+    @State private var budgetAmounts: [String: Double] = [:]
     
     private var expenseCategories: [Category] {
         allCategories.filter { $0.transactionType == .expense }
     }
     
+    private var currentMonthTransactions: [Transaction] {
+        let calendar = Calendar.current
+        return transactions.filter { transaction in
+            calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
+        }
+    }
+    
+    private var totalSpent: Double {
+        currentMonthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+    }
+    
+    private var totalBudgeted: Double {
+        budgetAmounts.values.reduce(0, +)
+    }
+    
+    private var remainingToBudget: Double {
+        totalIncome - totalBudgeted
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Header
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Budget Planning")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Manage your income and spending budgets")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal)
+                VStack(spacing: 0) {
+                    // Header Section
+                    headerSection
                     
-                    // Paycheck Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Income Information")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        VStack(spacing: 16) {
-                            // Paycheck Amount
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Paycheck Amount")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                
-                                TextField("Enter your paycheck amount", text: $paycheckAmount)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                            }
-                            
-                            // Payment Frequency
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Payment Frequency")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                
-                                Picker("Payment Frequency", selection: $paymentFrequency) {
-                                    ForEach(PaymentFrequency.allCases, id: \.self) { frequency in
-                                        Text(frequency.rawValue).tag(frequency)
-                                    }
-                                }
-                                .pickerStyle(SegmentedPickerStyle())
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(16)
-                        .padding(.horizontal)
-                    }
+                    // Budget Summary
+                    budgetSummarySection
                     
-                    // Monthly Budget Summary
-                    if let monthlyIncome = calculateMonthlyIncome() {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Monthly Budget Summary")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Text("Monthly Income")
-                                    Spacer()
-                                    Text(formatCurrency(monthlyIncome))
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.green)
-                                }
-                                
-                                HStack {
-                                    Text("Total Budget")
-                                    Spacer()
-                                    Text(formatCurrency(totalBudgetAmount))
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.blue)
-                                }
-                                
-                                Divider()
-                                
-                                HStack {
-                                    Text("Remaining")
-                                    Spacer()
-                                    Text(formatCurrency(monthlyIncome - totalBudgetAmount))
-                                        .fontWeight(.bold)
-                                        .foregroundColor(monthlyIncome - totalBudgetAmount >= 0 ? .green : .red)
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(16)
-                            .padding(.horizontal)
-                        }
-                    }
+                    // Income Section
+                    incomeSection
                     
                     // Spending Categories
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Spending Categories")
-                            .font(.headline)
-                            .padding(.horizontal)
-                        
-                        LazyVStack(spacing: 12) {
-                            ForEach(expenseCategories, id: \.name) { category in
-                                BudgetCategoryRow(
-                                    category: category,
-                                    budgetAmount: Binding(
-                                        get: { budgetAmounts[category.name] ?? "" },
-                                        set: { budgetAmounts[category.name] = $0 }
-                                    )
-                                )
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
+                    spendingCategoriesSection
                     
-                    Spacer()
+                    Spacer(minLength: 100)
                 }
-                .padding(.vertical)
             }
             .navigationTitle("Budget")
             .navigationBarTitleDisplayMode(.inline)
@@ -148,32 +69,197 @@ struct BudgetView: View {
                     Button("Save") {
                         saveBudgets()
                     }
-                    .disabled(paycheckAmount.isEmpty)
                 }
             }
         }
         .onAppear {
-            loadExistingBudgets()
+            loadBudgetData()
         }
     }
     
-    private func calculateMonthlyIncome() -> Double? {
-        guard let paycheck = Double(paycheckAmount), paycheck > 0 else { return nil }
+    private var headerSection: some View {
+        VStack {
+            HStack {
+                Button(action: { changeMonth(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(.white)
+                }
+                
+                Spacer()
+                
+                Text(monthYearString)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Button(action: { changeMonth(1) }) {
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 20)
+            
+            // Status tabs
+            HStack(spacing: 0) {
+                StatusTab(title: "Planned", amount: totalBudgeted, isActive: true)
+                StatusTab(title: "Spent", amount: totalSpent, isActive: false)
+                StatusTab(title: "Remaining", amount: remainingToBudget, isActive: false)
+            }
+            .padding(.horizontal)
+            .padding(.top, 20)
+            .padding(.bottom, 10)
+        }
+        .background(Color.green)
+    }
+    
+    private var budgetSummarySection: some View {
+        VStack(spacing: 12) {
+            Text(formatCurrency(remainingToBudget))
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(remainingToBudget >= 0 ? .green : .red)
+            
+            Text("left to budget")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 20)
+        .background(Color(.systemGray6))
+    }
+    
+    private var incomeSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Income")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    Spacer()
+                    Text("Planned")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack {
+                    Text("Total Income")
+                        .font(.body)
+                    Spacer()
+                    Text(formatCurrency(totalIncome))
+                        .font(.body)
+                        .fontWeight(.medium)
+                }
+                
+                Button(action: { showingAddIncome = true }) {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Add Income")
+                    }
+                    .foregroundColor(.blue)
+                }
+            }
+            .padding()
+            .background(Color.white)
+            .cornerRadius(12)
+            .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 20)
+    }
+    
+    private var spendingCategoriesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Group categories by type
+            let groupedCategories = Dictionary(grouping: expenseCategories) { category in
+                getCategoryGroup(category.name)
+            }
+            
+            ForEach(CategoryGroup.allCases, id: \.self) { group in
+                if let categories = groupedCategories[group], !categories.isEmpty {
+                    CategoryGroupView(
+                        group: group,
+                        categories: categories,
+                        budgetAmounts: $budgetAmounts,
+                        currentTransactions: currentMonthTransactions
+                    )
+                }
+            }
+            
+            // Add Category Button
+            Button(action: { showingAddCategory = true }) {
+                HStack {
+                    Image(systemName: "plus")
+                    Text("Add Category")
+                }
+                .foregroundColor(.blue)
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white)
+                .cornerRadius(12)
+                .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    private var monthYearString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: selectedMonth)
+    }
+    
+    private func changeMonth(_ direction: Int) {
+        if let newDate = Calendar.current.date(byAdding: .month, value: direction, to: selectedMonth) {
+            selectedMonth = newDate
+            loadBudgetData()
+        }
+    }
+    
+    private func getCategoryGroup(_ categoryName: String) -> CategoryGroup {
+        switch categoryName.lowercased() {
+        case let name where name.contains("food") || name.contains("dining"):
+            return .food
+        case let name where name.contains("transport") || name.contains("car") || name.contains("gas"):
+            return .transportation
+        case let name where name.contains("bill") || name.contains("utilit"):
+            return .bills
+        case let name where name.contains("entertain") || name.contains("fun"):
+            return .entertainment
+        case let name where name.contains("health") || name.contains("medical"):
+            return .health
+        case let name where name.contains("shop"):
+            return .shopping
+        case let name where name.contains("giving") || name.contains("charity") || name.contains("church"):
+            return .giving
+        default:
+            return .other
+        }
+    }
+    
+    private func loadBudgetData() {
+        // Load existing budgets for the current month
+        let calendar = Calendar.current
+        let activeBudgets = budgets.filter { budget in
+            calendar.isDate(budget.startDate, equalTo: selectedMonth, toGranularity: .month)
+        }
         
-        switch paymentFrequency {
-        case .weekly:
-            return paycheck * 4.33 // Average weeks per month
-        case .biweekly:
-            return paycheck * 2.17 // Average bi-weekly periods per month
-        case .monthly:
-            return paycheck
-        case .yearly:
-            return paycheck / 12
+        budgetAmounts = [:]
+        for budget in activeBudgets {
+            if let categoryName = budget.category?.name {
+                budgetAmounts[categoryName] = budget.amount
+            }
         }
+        
+        // Set a default total income (this could be saved in UserDefaults or a separate model)
+        totalIncome = 5000.0 // Default value
     }
     
-    private var totalBudgetAmount: Double {
-        budgetAmounts.values.compactMap { Double($0) }.reduce(0, +)
+    private func saveBudgets() {
+        // Implementation for saving budgets
+        // This would create/update Budget objects in the model context
+        print("Saving budgets...")
     }
     
     private func formatCurrency(_ amount: Double) -> String {
@@ -182,98 +268,152 @@ struct BudgetView: View {
         formatter.locale = Locale.current
         return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
+}
+
+struct StatusTab: View {
+    let title: String
+    let amount: Double
+    let isActive: Bool
     
-    private func loadExistingBudgets() {
-        // Load existing budget amounts
-        for budget in budgets {
-            if let category = budget.category {
-                budgetAmounts[category.name] = String(budget.amount)
-            }
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white.opacity(isActive ? 1.0 : 0.7))
+            
+            Text(formatCurrency(amount))
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(isActive ? Color.white.opacity(0.2) : Color.clear)
+        .cornerRadius(8)
     }
     
-    private func saveBudgets() {
-        guard let monthlyIncome = calculateMonthlyIncome() else { return }
-        
-        // Clear existing budgets
-        for budget in budgets {
-            modelContext.delete(budget)
-        }
-        
-        // Create new budgets for each category with an amount
-        for (categoryName, amountString) in budgetAmounts {
-            guard let amount = Double(amountString), amount > 0 else { continue }
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+    }
+}
+
+struct CategoryGroupView: View {
+    let group: CategoryGroup
+    let categories: [Category]
+    @Binding var budgetAmounts: [String: Double]
+    let currentTransactions: [Transaction]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(group.title)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+                Text("Planned")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
             
-            if let category = expenseCategories.first(where: { $0.name == categoryName }) {
-                let startDate = Calendar.current.startOfMonth(for: Date())
-                let endDate = Calendar.current.date(byAdding: .month, value: 1, to: startDate) ?? Date()
-                
-                let budget = Budget(
-                    amount: amount,
-                    startDate: startDate,
-                    endDate: endDate,
-                    category: category
+            ForEach(categories, id: \.name) { category in
+                BudgetCategoryRow(
+                    category: category,
+                    budgetAmount: budgetAmounts[category.name] ?? 0,
+                    spentAmount: getSpentAmount(for: category),
+                    onBudgetChange: { amount in
+                        budgetAmounts[category.name] = amount
+                    }
                 )
-                
-                modelContext.insert(budget)
             }
         }
-        
-        // Save the context
-        try? modelContext.save()
+        .padding()
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .gray.opacity(0.1), radius: 2, x: 0, y: 1)
+        .padding(.horizontal)
+    }
+    
+    private func getSpentAmount(for category: Category) -> Double {
+        return currentTransactions
+            .filter { $0.category?.name == category.name && $0.type == .expense }
+            .reduce(0) { $0 + $1.amount }
     }
 }
 
 struct BudgetCategoryRow: View {
     let category: Category
-    @Binding var budgetAmount: String
+    let budgetAmount: Double
+    let spentAmount: Double
+    let onBudgetChange: (Double) -> Void
+    
+    @State private var budgetText: String = ""
+    @State private var isEditing: Bool = false
     
     var body: some View {
         HStack {
-            // Category icon and name
-            HStack(spacing: 12) {
-                Image(systemName: category.iconName)
-                    .foregroundColor(category.color)
-                    .frame(width: 24, height: 24)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(category.name)
-                        .font(.body)
-                        .fontWeight(.medium)
-                    
-                    Text("Monthly budget")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-            }
+            Image(systemName: category.iconName)
+                .foregroundColor(category.color)
+                .frame(width: 24, height: 24)
             
-            // Budget amount input
-            TextField("$0", text: $budgetAmount)
-                .keyboardType(.decimalPad)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(width: 100)
-                .multilineTextAlignment(.trailing)
+            Text(category.name)
+                .font(.body)
+            
+            Spacer()
+            
+            if isEditing {
+                TextField("$0", text: $budgetText)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 80)
+                    .onSubmit {
+                        if let amount = Double(budgetText) {
+                            onBudgetChange(amount)
+                        }
+                        isEditing = false
+                    }
+            } else {
+                Text(formatCurrency(budgetAmount))
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .onTapGesture {
+                        budgetText = budgetAmount > 0 ? String(format: "%.0f", budgetAmount) : ""
+                        isEditing = true
+                    }
+            }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditing {
+                budgetText = budgetAmount > 0 ? String(format: "%.0f", budgetAmount) : ""
+                isEditing = true
+            }
+        }
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
 }
 
-enum PaymentFrequency: String, CaseIterable {
-    case weekly = "Weekly"
-    case biweekly = "Bi-weekly"
-    case monthly = "Monthly"
-    case yearly = "Yearly"
-}
-
-// Extension to help with calendar calculations
-extension Calendar {
-    func startOfMonth(for date: Date) -> Date {
-        let components = dateComponents([.year, .month], from: date)
-        return self.date(from: components) ?? date
+enum CategoryGroup: String, CaseIterable {
+    case food = "Food & Dining"
+    case transportation = "Transportation"
+    case bills = "Bills & Utilities"
+    case entertainment = "Entertainment"
+    case health = "Health & Medical"
+    case shopping = "Shopping"
+    case giving = "Giving"
+    case other = "Other"
+    
+    var title: String {
+        return self.rawValue
     }
 }
 
