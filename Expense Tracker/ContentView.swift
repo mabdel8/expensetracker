@@ -20,7 +20,7 @@ struct ContentView: View {
             
             BudgetView()
                 .tabItem {
-                    Label("Budget", systemImage: "dollarsign.circle.fill")
+                    Label("Budget", systemImage: "chart.pie.fill")
                 }
             
             SettingsView()
