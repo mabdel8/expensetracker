@@ -211,23 +211,25 @@ struct BudgetView: View {
             }
             
             ForEach(CategoryGroup.allCases, id: \.self) { group in
-                if let categories = groupedCategories[group], !categories.isEmpty {
-                    let filteredCategories = categories.filter { $0.name != group.rawValue }
-                    
-                    CategoryGroupView(
-                        group: group,
-                        categories: filteredCategories,
-                        budgetAmounts: $budgetAmounts,
-                        customBudgetItems: customBudgetItems[group] ?? [],
-                        currentTransactions: currentMonthTransactions,
-                        expenseTransactionsForGroup: getExpenseTransactionsForGroup(group),
-                        showingAddItemForGroup: $showingAddItemForGroup,
-                        newItemName: $newItemName,
-                        newItemAmount: $newItemAmount,
-                        onSaveItem: { saveItemForGroup(group) },
-                        onCancelItem: { cancelAddItemForGroup() }
-                    )
-                }
+                let categories = groupedCategories[group] ?? []
+                let filteredCategories = categories.filter { $0.name != group.rawValue }
+                
+                CategoryGroupView(
+                    group: group,
+                    categories: filteredCategories,
+                    budgetAmounts: $budgetAmounts,
+                    customBudgetItems: customBudgetItems[group] ?? [],
+                    currentTransactions: currentMonthTransactions,
+                    expenseTransactionsForGroup: getExpenseTransactionsForGroup(group),
+                    showingAddItemForGroup: $showingAddItemForGroup,
+                    newItemName: $newItemName,
+                    newItemAmount: $newItemAmount,
+                    onSaveItem: { saveItemForGroup(group) },
+                    onCancelItem: { cancelAddItemForGroup() },
+                    onCustomItemAmountChange: { itemId, newAmount in
+                        updateCustomItemAmount(group: group, itemId: itemId, newAmount: newAmount)
+                    }
+                )
             }
             
 
@@ -249,19 +251,21 @@ struct BudgetView: View {
     
     private func getCategoryGroup(_ categoryName: String) -> CategoryGroup {
         switch categoryName.lowercased() {
-        case let name where name.contains("food") || name.contains("dining"):
-            return .food
-        case let name where name.contains("transport") || name.contains("car") || name.contains("gas"):
-            return .transportation
-        case let name where name.contains("bill") || name.contains("utilit"):
-            return .bills
-        case let name where name.contains("entertain") || name.contains("fun"):
-            return .entertainment
-        case let name where name.contains("health") || name.contains("medical"):
+        case let name where name.contains("health") || name.contains("medical") || name.contains("doctor") || name.contains("hospital") || name.contains("pharmacy") || name.contains("medicine") || name.contains("dental") || name.contains("gym") || name.contains("fitness"):
             return .health
-        case let name where name.contains("shop"):
+        case let name where name.contains("personal") || name.contains("care") || name.contains("beauty") || name.contains("haircut") || name.contains("salon"):
+            return .other
+        case let name where name.contains("food") || name.contains("dining") || name.contains("restaurant") || name.contains("grocery"):
+            return .food
+        case let name where name.contains("transport") || name.contains("car") || name.contains("vehicle") || name.contains("fuel") || name.contains("parking") || name.contains("uber") || name.contains("taxi"):
+            return .transportation
+        case let name where name.contains("bill") || name.contains("utilit") || name.contains("electric") || name.contains("water") || name.contains("rent") || name.contains("mortgage"):
+            return .bills
+        case let name where name.contains("entertain") || name.contains("fun") || name.contains("movie") || name.contains("game") || name.contains("streaming"):
+            return .entertainment
+        case let name where name.contains("shop") || name.contains("clothing") || name.contains("electronics"):
             return .shopping
-        case let name where name.contains("giving") || name.contains("charity") || name.contains("church"):
+        case let name where name.contains("giving") || name.contains("charity") || name.contains("church") || name.contains("donation"):
             return .giving
         default:
             return .other
@@ -291,10 +295,64 @@ struct BudgetView: View {
             }
         }
         
+        // Load default budget items if customBudgetItems is empty
+        if customBudgetItems.isEmpty {
+            loadDefaultBudgetItems()
+        }
+        
         // Calculate total income from both manual items and transactions
         let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
         let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
         totalIncome = manualIncomeTotal + transactionIncomeTotal
+    }
+    
+    private func loadDefaultBudgetItems() {
+        customBudgetItems = [
+            .bills: [
+                BudgetItem(name: "Mortgage/Rent", amount: 0),
+                BudgetItem(name: "Water", amount: 0),
+                BudgetItem(name: "Electricity", amount: 0),
+                BudgetItem(name: "Gas", amount: 0),
+                BudgetItem(name: "Cable", amount: 0),
+                BudgetItem(name: "Trash", amount: 0)
+            ],
+            .food: [
+                BudgetItem(name: "Groceries", amount: 0),
+                BudgetItem(name: "Restaurants", amount: 0)
+            ],
+            .transportation: [
+                BudgetItem(name: "Gas", amount: 0),
+                BudgetItem(name: "Car Insurance", amount: 0),
+                BudgetItem(name: "Car Payment", amount: 0),
+                BudgetItem(name: "Parking", amount: 0)
+            ],
+            .entertainment: [
+                BudgetItem(name: "Streaming Services", amount: 0),
+                BudgetItem(name: "Movies", amount: 0),
+                BudgetItem(name: "Concerts/Events", amount: 0),
+                BudgetItem(name: "Gaming", amount: 0)
+            ],
+            .health: [
+                BudgetItem(name: "Gym", amount: 0),
+                BudgetItem(name: "Medicine/Vitamins", amount: 0),
+                BudgetItem(name: "Doctor Visits", amount: 0)
+            ],
+            .shopping: [
+                BudgetItem(name: "Clothing", amount: 0),
+                BudgetItem(name: "Electronics", amount: 0),
+                BudgetItem(name: "Home Goods", amount: 0)
+            ],
+            .giving: [
+                BudgetItem(name: "Charity", amount: 0),
+                BudgetItem(name: "Gifts", amount: 0),
+                BudgetItem(name: "Church/Religious", amount: 0)
+            ],
+            .other: [
+                BudgetItem(name: "Personal Care", amount: 0),
+                BudgetItem(name: "Miscellaneous", amount: 0),
+                BudgetItem(name: "Emergency Fund", amount: 0)
+            ]
+        ]
     }
     
 
@@ -334,6 +392,15 @@ struct BudgetView: View {
         showingAddItemForGroup = nil
     }
     
+    private func updateCustomItemAmount(group: CategoryGroup, itemId: UUID, newAmount: Double) {
+        if var items = customBudgetItems[group] {
+            if let index = items.firstIndex(where: { $0.id == itemId }) {
+                items[index].amount = newAmount
+                customBudgetItems[group] = items
+            }
+        }
+    }
+    
     private func formatCurrency(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -356,6 +423,7 @@ struct CategoryGroupView: View {
     @Binding var newItemAmount: String
     let onSaveItem: () -> Void
     let onCancelItem: () -> Void
+    let onCustomItemAmountChange: (UUID, Double) -> Void
     
     private var groupTotal: Double {
         let categoryTotal = categories.filter { $0.name != group.rawValue }.reduce(0) { total, category in
@@ -405,7 +473,9 @@ struct CategoryGroupView: View {
             
             // Display custom budget items
             ForEach(customBudgetItems, id: \.id) { item in
-                CustomBudgetItemRow(item: item)
+                CustomBudgetItemRow(item: item) { newAmount in
+                    onCustomItemAmountChange(item.id, newAmount)
+                }
             }
             
             // Show total for this group if there are budgeted items
@@ -545,6 +615,10 @@ struct BudgetCategoryRow: View {
 
 struct CustomBudgetItemRow: View {
     let item: BudgetItem
+    let onAmountChange: (Double) -> Void
+    
+    @State private var amountText: String = ""
+    @State private var isEditing: Bool = false
     
     var body: some View {
         HStack {
@@ -553,11 +627,34 @@ struct CustomBudgetItemRow: View {
             
             Spacer()
             
-            Text(formatCurrency(item.amount))
-                .font(.body)
-                .fontWeight(.medium)
+            if isEditing {
+                TextField("$0", text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 80)
+                    .onSubmit {
+                        if let amount = Double(amountText) {
+                            onAmountChange(amount)
+                        }
+                        isEditing = false
+                    }
+            } else {
+                Text(formatCurrency(item.amount))
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .onTapGesture {
+                        amountText = item.amount > 0 ? String(format: "%.0f", item.amount) : ""
+                        isEditing = true
+                    }
+            }
         }
         .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditing {
+                amountText = item.amount > 0 ? String(format: "%.0f", item.amount) : ""
+                isEditing = true
+            }
+        }
     }
     
     private func formatCurrency(_ amount: Double) -> String {
@@ -575,9 +672,15 @@ struct IncomeItem: Identifiable {
 }
 
 struct BudgetItem: Identifiable {
-    let id = UUID()
-    var name: String
+    let id: UUID
+    let name: String
     var amount: Double
+    
+    init(name: String, amount: Double) {
+        self.id = UUID()
+        self.name = name
+        self.amount = amount
+    }
 }
 
 
