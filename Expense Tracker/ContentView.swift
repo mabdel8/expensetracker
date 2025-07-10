@@ -18,9 +18,9 @@ struct ContentView: View {
                     Label("Dashboard", systemImage: "house.fill")
                 }
             
-            ReportsView()
+            BudgetView()
                 .tabItem {
-                    Label("Reports", systemImage: "chart.pie.fill")
+                    Label("Budget", systemImage: "dollarsign.circle.fill")
                 }
             
             SettingsView()
