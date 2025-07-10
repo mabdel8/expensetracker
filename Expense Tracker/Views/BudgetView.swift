@@ -114,19 +114,30 @@ struct BudgetView: View {
     }
     
     private var budgetSummarySection: some View {
-        VStack(spacing: 12) {
-            Text(formatCurrency(remainingToBudget))
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(remainingToBudget >= 0 ? .green : .red)
+        VStack(spacing: 16) {
+            HStack {
+                Text("Budget Summary")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+            }
             
-            Text("left to budget")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            HStack {
+                Text("Remaining to Budget")
+                    .font(.body)
+                Spacer()
+                Text(formatCurrency(remainingToBudget))
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(remainingToBudget >= 0 ? .green : .red)
+            }
         }
-        .padding(.vertical, 20)
-        .background(Color(.systemGray6))
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding()
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
     }
     
     private var incomeSection: some View {
