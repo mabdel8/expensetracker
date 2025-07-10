@@ -11,12 +11,16 @@ import SwiftData
 struct BudgetView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var budgets: [Budget]
-    @Query(filter: #Predicate<Category> { $0.transactionType == .expense }) private var expenseCategories: [Category]
+    @Query private var allCategories: [Category]
     
     @State private var paycheckAmount: String = ""
     @State private var paymentFrequency: PaymentFrequency = .monthly
     @State private var showingAddBudget = false
     @State private var budgetAmounts: [String: String] = [:]
+    
+    private var expenseCategories: [Category] {
+        allCategories.filter { $0.transactionType == .expense }
+    }
     
     var body: some View {
         NavigationView {
