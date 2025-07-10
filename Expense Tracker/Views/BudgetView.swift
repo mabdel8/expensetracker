@@ -47,8 +47,8 @@ struct BudgetView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Header Section
-                    headerSection
+                    // Month Navigation
+                    monthNavigationSection
                     
                     // Budget Summary
                     budgetSummarySection
@@ -77,42 +77,29 @@ struct BudgetView: View {
         }
     }
     
-    private var headerSection: some View {
-        VStack {
-            HStack {
-                Button(action: { changeMonth(-1) }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.white)
-                }
-                
-                Spacer()
-                
-                Text(monthYearString)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Button(action: { changeMonth(1) }) {
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.white)
-                }
+    private var monthNavigationSection: some View {
+        HStack {
+            Button(action: { changeMonth(-1) }) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(.primary)
             }
-            .padding(.horizontal)
-            .padding(.top, 20)
             
-            // Status tabs
-            HStack(spacing: 0) {
-                StatusTab(title: "Planned", amount: totalBudgeted, isActive: true)
-                StatusTab(title: "Spent", amount: totalSpent, isActive: false)
-                StatusTab(title: "Remaining", amount: remainingToBudget, isActive: false)
+            Spacer()
+            
+            Text(monthYearString)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Button(action: { changeMonth(1) }) {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.primary)
             }
-            .padding(.horizontal)
-            .padding(.top, 20)
-            .padding(.bottom, 10)
         }
-        .background(Color.green)
+        .padding(.horizontal)
+        .padding(.vertical, 16)
     }
     
     private var budgetSummarySection: some View {
@@ -270,36 +257,7 @@ struct BudgetView: View {
     }
 }
 
-struct StatusTab: View {
-    let title: String
-    let amount: Double
-    let isActive: Bool
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white.opacity(isActive ? 1.0 : 0.7))
-            
-            Text(formatCurrency(amount))
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(isActive ? Color.white.opacity(0.2) : Color.clear)
-        .cornerRadius(8)
-    }
-    
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale.current
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
-    }
-}
+
 
 struct CategoryGroupView: View {
     let group: CategoryGroup
