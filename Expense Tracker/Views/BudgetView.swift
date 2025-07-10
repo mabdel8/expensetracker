@@ -583,9 +583,9 @@ struct BudgetItem: Identifiable {
 
 
 enum CategoryGroup: String, CaseIterable {
+    case bills = "Bills & Utilities"
     case food = "Food & Dining"
     case transportation = "Transportation"
-    case bills = "Bills & Utilities"
     case entertainment = "Entertainment"
     case health = "Health & Medical"
     case shopping = "Shopping"
