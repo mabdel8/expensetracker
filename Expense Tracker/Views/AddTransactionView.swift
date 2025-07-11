@@ -166,8 +166,6 @@ struct AddTransactionView: View {
                 HStack {
                     TextField("Enter amount", text: $amount)
                         .keyboardType(.decimalPad)
-                        .font(.title3)
-                        .fontWeight(.medium)
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -183,7 +181,6 @@ struct AddTransactionView: View {
                 
                 HStack {
                     TextField("Enter name", text: $name)
-                        .font(.body)
                     Spacer()
                 }
                 .padding(.horizontal, 16)
