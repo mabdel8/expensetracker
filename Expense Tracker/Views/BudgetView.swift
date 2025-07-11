@@ -495,8 +495,9 @@ struct CategoryGroupView: View {
                 }
             }
             
-            // Inline input row when adding item
+            // Add Item button row or inline input row
             if showingAddItemForGroup == group {
+                // Inline input row when adding item (replaces the Add Item button)
                 HStack {
                     TextField("Item Name", text: $newItemName)
                         .textFieldStyle(PlainTextFieldStyle())
@@ -515,32 +516,36 @@ struct CategoryGroupView: View {
                         .focused($isAmountFocused)
                 }
                 .padding(.vertical, 8)
-            }
-            
-            // Add Item button row
-            HStack {
-                Button(action: { 
-                    if showingAddItemForGroup == group {
+                
+                // Cancel and Done buttons
+                HStack {
+                    Button("Cancel") {
                         onCancelItem()
-                    } else {
-                        showingAddItemForGroup = group
                     }
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Item")
-                    }
-                    .foregroundColor(.blue)
-                }
-                
-                Spacer()
-                
-                if showingAddItemForGroup == group {
+                    .foregroundColor(.red)
+                    
+                    Spacer()
+                    
                     Button("Done") {
                         onSaveItem()
                     }
                     .disabled(newItemName.isEmpty || newItemAmount.isEmpty)
                     .foregroundColor(.blue)
+                }
+            } else {
+                // Add Item button
+                HStack {
+                    Button(action: { 
+                        showingAddItemForGroup = group
+                    }) {
+                        HStack {
+                            Image(systemName: "plus")
+                            Text("Add Item")
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    
+                    Spacer()
                 }
             }
         }
