@@ -124,7 +124,7 @@ struct AddTransactionView: View {
                 .font(.headline)
                 .fontWeight(.medium)
             
-            HStack(spacing: 0) {
+            HStack(spacing: 12) {
                 Button(action: { selectedType = .income }) {
                     HStack {
                         Image(systemName: "arrow.up.right")
@@ -135,11 +135,11 @@ struct AddTransactionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(selectedType == .income ? Color.blue : Color.clear)
+                    .background(selectedType == .income ? Color.blue : Color.gray.opacity(0.1))
                     .foregroundColor(selectedType == .income ? .white : .primary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(selectedType == .income ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
                     )
                     .cornerRadius(22)
                 }
@@ -154,17 +154,15 @@ struct AddTransactionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(selectedType == .expense ? Color.blue : Color.clear)
+                    .background(selectedType == .expense ? Color.blue : Color.gray.opacity(0.1))
                     .foregroundColor(selectedType == .expense ? .white : .primary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            .stroke(selectedType == .expense ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
                     )
                     .cornerRadius(22)
                 }
             }
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(22)
         }
     }
     
