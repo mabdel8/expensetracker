@@ -425,6 +425,8 @@ struct CategoryGroupView: View {
     let onCancelItem: () -> Void
     let onCustomItemAmountChange: (UUID, Double) -> Void
     
+    @FocusState private var isAmountFocused: Bool
+    
     private var groupTotal: Double {
         let categoryTotal = categories.filter { $0.name != group.rawValue }.reduce(0) { total, category in
             total + (budgetAmounts[category.name] ?? 0)
@@ -498,6 +500,10 @@ struct CategoryGroupView: View {
                 HStack {
                     TextField("Item Name", text: $newItemName)
                         .textFieldStyle(PlainTextFieldStyle())
+                        .submitLabel(.done)
+                        .onSubmit {
+                            // Move focus away from the text field when done is pressed
+                        }
                     
                     Spacer()
                     
@@ -506,6 +512,7 @@ struct CategoryGroupView: View {
                         .textFieldStyle(PlainTextFieldStyle())
                         .multilineTextAlignment(.trailing)
                         .frame(width: 100)
+                        .focused($isAmountFocused)
                 }
                 .padding(.vertical, 8)
             }
@@ -543,6 +550,16 @@ struct CategoryGroupView: View {
                         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
             .padding(.horizontal)
             .padding(.bottom, 8)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    if isAmountFocused {
+                        Spacer()
+                        Button("Done") {
+                            isAmountFocused = false
+                        }
+                    }
+                }
+            }
     }
     
     private func getSpentAmount(for category: Category) -> Double {
