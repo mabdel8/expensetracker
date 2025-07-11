@@ -262,8 +262,9 @@ struct AddTransactionView: View {
                     DatePicker("", selection: $date, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(CompactDatePickerStyle())
+                    Spacer()
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
@@ -280,8 +281,9 @@ struct AddTransactionView: View {
                     DatePicker("", selection: $date, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                         .datePickerStyle(CompactDatePickerStyle())
+                    Spacer()
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
