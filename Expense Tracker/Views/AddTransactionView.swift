@@ -18,7 +18,8 @@ struct AddTransactionView: View {
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
-    @FocusState private var isInputActive: Bool
+    @FocusState private var isAmountFocused: Bool
+    @FocusState private var isNameFocused: Bool
     
     @Query private var categories: [Category]
     
@@ -84,9 +85,11 @@ struct AddTransactionView: View {
             .navigationBarHidden(true)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        isInputActive = false
+                    if isAmountFocused {
+                        Spacer()
+                        Button("Done") {
+                            isAmountFocused = false
+                        }
                     }
                 }
             }
@@ -175,7 +178,7 @@ struct AddTransactionView: View {
                 HStack {
                     TextField("Enter amount", text: $amount)
                         .keyboardType(.decimalPad)
-                        .focused($isInputActive)
+                        .focused($isAmountFocused)
                     Spacer()
                 }
                 .padding(.horizontal, 16)
@@ -191,7 +194,11 @@ struct AddTransactionView: View {
                 
                 HStack {
                     TextField("Enter name", text: $name)
-                        .focused($isInputActive)
+                        .focused($isNameFocused)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            isNameFocused = false
+                        }
                     Spacer()
                 }
                 .padding(.horizontal, 16)
