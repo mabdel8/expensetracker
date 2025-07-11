@@ -27,11 +27,14 @@ struct AddTransactionView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header
-                    headerSection
-                    
+            VStack(spacing: 0) {
+                // Header
+                headerSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                
+                // Main content
+                VStack(spacing: 16) {
                     // Type Selector
                     typeSelector
                     
@@ -46,42 +49,38 @@ struct AddTransactionView: View {
                     
                     // Notes Section
                     notesSection
-                    
-                    Spacer(minLength: 120)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .padding(.top, 12)
+                
+                Spacer()
+                
+                // Save and Cancel buttons
+                HStack(spacing: 16) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.gray.opacity(0.1))
+                    .foregroundColor(.primary)
+                    .cornerRadius(16)
+                    
+                    Button("Save") {
+                        saveTransaction()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(16)
+                    .disabled(name.isEmpty || amount.isEmpty || selectedCategory == nil)
+                    .opacity((name.isEmpty || amount.isEmpty || selectedCategory == nil) ? 0.5 : 1)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 40)
             }
             .navigationBarHidden(true)
-            .overlay(
-                // Save and Cancel buttons
-                VStack {
-                    Spacer()
-                    HStack(spacing: 16) {
-                        Button("Cancel") {
-                            dismiss()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Color.gray.opacity(0.1))
-                        .foregroundColor(.primary)
-                        .cornerRadius(16)
-                        
-                        Button("Save") {
-                            saveTransaction()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(16)
-                        .disabled(name.isEmpty || amount.isEmpty || selectedCategory == nil)
-                        .opacity((name.isEmpty || amount.isEmpty || selectedCategory == nil) ? 0.5 : 1)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
-                }
-            )
         }
     }
     
@@ -108,7 +107,7 @@ struct AddTransactionView: View {
     }
     
     private var typeSelector: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Choose")
                 .font(.headline)
                 .fontWeight(.medium)
@@ -123,14 +122,14 @@ struct AddTransactionView: View {
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(height: 44)
                     .background(selectedType == .income ? Color.blue : Color.clear)
                     .foregroundColor(selectedType == .income ? .white : .primary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 25)
+                        RoundedRectangle(cornerRadius: 22)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                     )
-                    .cornerRadius(25)
+                    .cornerRadius(22)
                 }
                 
                 Button(action: { selectedType = .expense }) {
@@ -142,24 +141,24 @@ struct AddTransactionView: View {
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(height: 44)
                     .background(selectedType == .expense ? Color.blue : Color.clear)
                     .foregroundColor(selectedType == .expense ? .white : .primary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 25)
+                        RoundedRectangle(cornerRadius: 22)
                             .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                     )
-                    .cornerRadius(25)
+                    .cornerRadius(22)
                 }
             }
             .background(Color.gray.opacity(0.1))
-            .cornerRadius(25)
+            .cornerRadius(22)
         }
     }
     
     private var amountSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Amount")
                     .font(.headline)
                     .fontWeight(.medium)
@@ -172,12 +171,12 @@ struct AddTransactionView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
             }
             
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Description")
                     .font(.headline)
                     .fontWeight(.medium)
@@ -188,7 +187,7 @@ struct AddTransactionView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
             }
@@ -196,48 +195,50 @@ struct AddTransactionView: View {
     }
     
     private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Category")
                 .font(.headline)
                 .fontWeight(.medium)
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 5), spacing: 16) {
-                ForEach(availableCategories, id: \.name) { category in
-                    CategoryButton(
-                        category: category,
-                        isSelected: selectedCategory?.name == category.name,
-                        action: { selectedCategory = category }
-                    )
-                }
-                
-                // Custom category button
-                Button(action: {
-                    // Handle custom category - for now just show placeholder
-                }) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.title2)
-                            .foregroundColor(.gray)
-                        Text("Custom")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(availableCategories, id: \.name) { category in
+                        CategoryButton(
+                            category: category,
+                            isSelected: selectedCategory?.name == category.name,
+                            action: { selectedCategory = category }
+                        )
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 80)
-                    .background(Color.clear)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.gray.opacity(0.5), lineWidth: 1)
-                    )
-                    .cornerRadius(12)
+                    
+                    // Custom category button
+                    Button(action: {
+                        // Handle custom category - for now just show placeholder
+                    }) {
+                        VStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                            Text("Custom")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .frame(width: 70, height: 70)
+                        .background(Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+                        )
+                        .cornerRadius(12)
+                    }
                 }
+                .padding(.horizontal, 4)
             }
         }
     }
     
     private var dateTimeSection: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 12) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Date")
                     .font(.headline)
                     .fontWeight(.medium)
@@ -249,13 +250,13 @@ struct AddTransactionView: View {
                         .labelsHidden()
                         .datePickerStyle(CompactDatePickerStyle())
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
             }
             
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Time")
                     .font(.headline)
                     .fontWeight(.medium)
@@ -267,8 +268,8 @@ struct AddTransactionView: View {
                         .labelsHidden()
                         .datePickerStyle(CompactDatePickerStyle())
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
             }
@@ -276,15 +277,15 @@ struct AddTransactionView: View {
     }
     
     private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("Notes")
                 .font(.headline)
                 .fontWeight(.medium)
             
             TextField("Add details", text: $notes, axis: .vertical)
-                .lineLimit(3...6)
+                .lineLimit(2...3)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
         }
@@ -320,7 +321,7 @@ struct CategoryButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Image(systemName: category.iconName)
                     .font(.title2)
                     .foregroundColor(isSelected ? .white : .primary)
@@ -329,9 +330,9 @@ struct CategoryButton: View {
                     .font(.caption)
                     .foregroundColor(isSelected ? .white : .primary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 80)
+            .frame(width: 70, height: 70)
             .background(isSelected ? Color.blue : Color.gray.opacity(0.1))
             .cornerRadius(12)
         }
