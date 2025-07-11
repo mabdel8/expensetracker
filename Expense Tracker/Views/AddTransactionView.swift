@@ -94,7 +94,7 @@ struct AddTransactionView: View {
             
             Spacer()
             
-            Text("Add transactions")
+            Text("Add transaction")
                 .font(.headline)
                 .fontWeight(.medium)
             
@@ -177,12 +177,12 @@ struct AddTransactionView: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("Description")
+                Text("Name")
                     .font(.headline)
                     .fontWeight(.medium)
                 
                 HStack {
-                    TextField("Enter description", text: $name)
+                    TextField("Enter name", text: $name)
                         .font(.body)
                     Spacer()
                 }
