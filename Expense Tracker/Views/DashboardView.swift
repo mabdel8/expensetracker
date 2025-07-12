@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Charts
 
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,49 +16,53 @@ struct DashboardView: View {
     
     @State private var currentDate = Date()
     @State private var selectedMonth = Date()
+    @State private var showCalendar = false
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                // Month navigation header
+                // Top navigation header
                 HStack {
+                    Spacer()
+                    
+                    Button(action: {
+                        showCalendar.toggle()
+                    }) {
+                        Image(systemName: "calendar")
+                            .font(.title2)
+                            .foregroundColor(Color(hex: "023047") ?? .blue)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                
+                // Month navigation on main page
+                HStack(spacing: 16) {
                     Button(action: {
                         changeMonth(-1)
                     }) {
                         Image(systemName: "chevron.left")
-                            .font(.title2)
-                            .foregroundColor(.blue)
+                            .font(.body)
+                            .foregroundColor(Color(hex: "023047") ?? .blue)
                     }
                     
-                    Spacer()
-                    
                     Text(monthYearString(for: selectedMonth))
-                        .font(.title2)
+                        .font(.headline)
                         .fontWeight(.semibold)
-                    
-                    Spacer()
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     
                     Button(action: {
                         changeMonth(1)
                     }) {
                         Image(systemName: "chevron.right")
-                            .font(.title2)
-                            .foregroundColor(.blue)
+                            .font(.body)
+                            .foregroundColor(Color(hex: "023047") ?? .blue)
                     }
                 }
-                .padding(.horizontal, 40)
-                .padding(.top, 20)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10)
                 
-                // Calendar view
-                CalendarView(
-                    selectedMonth: selectedMonth,
-                    transactions: transactions
-                )
-                .background(Color.white)
-                .cornerRadius(16)
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-                .padding(.horizontal)
                 
                 // Monthly Summary Card
                 MonthlySummaryCard(
@@ -66,9 +71,8 @@ struct DashboardView: View {
                 )
                 .padding(.horizontal)
                 
-                // Breakdown Cards (Swipeable)
-                BreakdownCardsView(
-                    selectedMonth: selectedMonth,
+                // Recent Transactions
+                RecentTransactionsView(
                     transactions: transactions
                 )
                 .padding(.horizontal)
@@ -78,6 +82,9 @@ struct DashboardView: View {
                 .padding(.bottom, 100) // Extra padding for tab bar
             }
             .navigationBarHidden(true)
+        }
+        .sheet(isPresented: $showCalendar) {
+            CalendarPageView(selectedMonth: selectedMonth, transactions: transactions)
         }
     }
     
@@ -221,11 +228,11 @@ struct CalendarDayView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isToday ? Color.blue.opacity(0.1) : Color.white)
+                .fill(isToday ? (Color(hex: "20B2AA") ?? .blue).opacity(0.1) : Color.white)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(isToday ? Color.blue : Color.clear, lineWidth: 1)
+                .stroke(isToday ? (Color(hex: "20B2AA") ?? .blue) : Color.clear, lineWidth: 1)
         )
     }
     
@@ -241,91 +248,80 @@ struct MonthlySummaryCard: View {
     private let calendar = Calendar.current
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with month/year
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(monthYearString)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    Text("\(transactionCount) transactions")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Net Balance")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Text("$\(balance, specifier: "%.2f")")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.black)
-                }
+        VStack(spacing: 20) {
+            // Header with month savings
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(monthName) Savings")
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(.black)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
-            Divider()
-            
-            // Financial breakdown
-            HStack {
-                // Income section
-                VStack(spacing: 6) {
-                    HStack {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.caption)
+            // Spending Donut Chart
+            VStack(spacing: 20) {
+                // Chart
+                Chart(spendingData, id: \.category) { item in
+                    SectorMark(
+                        angle: .value("Amount", item.amount),
+                        innerRadius: .ratio(0.6),
+                        angularInset: 2.0
+                    )
+                    .foregroundStyle(item.color)
+                    .cornerRadius(4)
+                }
+                .frame(height: 200)
+                .chartBackground { _ in
+                    VStack(spacing: 4) {
+                        Text("$\(monthlyIncome, specifier: "%.0f")")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.black)
                         Text("Total Income")
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
-                    Text("$\(monthlyIncome, specifier: "%.2f")")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.green)
-                    Text("\(incomeTransactionCount) payments")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
                 }
-                .frame(maxWidth: .infinity)
                 
-                Divider()
-                    .frame(height: 40)
-                
-                // Expenses section
-                VStack(spacing: 6) {
-                    HStack {
-                        Image(systemName: "arrow.down.circle.fill")
-                            .foregroundColor(.red)
-                            .font(.caption)
-                        Text("Total Expenses")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                // Legend
+                HStack(spacing: 20) {
+                    ForEach(spendingData, id: \.category) { item in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(item.color)
+                                .frame(width: 12, height: 12)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.category)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.black)
+                                Text("$\(item.amount, specifier: "%.0f")")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                        }
                     }
-                    Text("$\(monthlyExpenses, specifier: "%.2f")")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.red)
-                    Text("\(expenseTransactionCount) purchases")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
             }
-                         .padding(.horizontal, 20)
-             .padding(.vertical, 16)
-         }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
         .background(Color.white)
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
     }
     
     private var monthYearString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: selectedMonth)
+    }
+    
+    private var monthName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM"
         return formatter.string(from: selectedMonth)
     }
     
@@ -358,219 +354,192 @@ struct MonthlySummaryCard: View {
             calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
         }
     }
-}
-
-struct BreakdownCardsView: View {
-    let selectedMonth: Date
-    let transactions: [Transaction]
     
-    @State private var currentCardId: Int? = 0
-    private let calendar = Calendar.current
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            // Header with title and pagination
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text((currentCardId ?? 0) == 0 ? "Expense Breakdown" : "Income Breakdown")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    Text("Swipe to see \((currentCardId ?? 0) == 0 ? "income" : "expenses")")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                
-                Spacer()
-                
-                // Pagination dots
-                HStack(spacing: 6) {
-                    ForEach(0..<2, id: \.self) { index in
-                        Circle()
-                            .fill((currentCardId ?? 0) == index ? Color.primary : Color.gray.opacity(0.3))
-                            .frame(width: 8, height: 8)
-                            .animation(.easeInOut(duration: 0.2), value: currentCardId)
-                    }
-                }
-                        }
-            
-            // Scrollable cards
-            ScrollView(.horizontal) {
-                HStack(spacing: 0) {
-                    // Expense Breakdown Card
-                    CategoryBreakdownCard(
-                        title: "Expense Breakdown",
-                        categories: expenseCategories,
-                        type: .expense
-                    )
-                    .containerRelativeFrame(.horizontal)
-                    .scrollTransition(.animated(.easeInOut(duration: 0.4))) { content, phase in
-                        content
-                            .scaleEffect(phase.isIdentity ? 1.0 : 0.95)
-                            .opacity(phase.isIdentity ? 1.0 : 0.8)
-                    }
-                    .id(0)
-                    
-                    // Income Breakdown Card
-                    CategoryBreakdownCard(
-                        title: "Income Breakdown", 
-                        categories: incomeCategories,
-                        type: .income
-                    )
-                    .containerRelativeFrame(.horizontal)
-                    .scrollTransition(.animated(.easeInOut(duration: 0.4))) { content, phase in
-                        content
-                            .scaleEffect(phase.isIdentity ? 1.0 : 0.95)
-                            .opacity(phase.isIdentity ? 1.0 : 0.8)
-                    }
-                    .id(1)
-                }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollClipDisabled()
-            .scrollIndicators(.hidden)
-            .scrollPosition(id: $currentCardId)
-            .contentMargins(.horizontal, 20, for: .scrollContent)
-            .frame(height: 280)
-        }
-        .padding(.top, 16)
-        .padding(.horizontal, 20)
-    }
-    
-    private var monthlyTransactions: [Transaction] {
-        return transactions.filter { transaction in
-            calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
-        }
-    }
-    
-    private var expenseCategories: [CategoryBreakdown] {
-        let expenseTransactions = monthlyTransactions.filter { $0.type == .expense }
-        let grouped = Dictionary(grouping: expenseTransactions) { $0.category?.name ?? "Uncategorized" }
+    private var spendingData: [SpendingDataItem] {
+        let spent = monthlyExpenses
+        let remaining = max(0, monthlyIncome - monthlyExpenses)
         
-        return grouped.map { categoryName, transactions in
-            let total = transactions.reduce(0) { $0 + $1.amount }
-            let iconName = transactions.first?.category?.iconName ?? "questionmark.circle"
-            return CategoryBreakdown(name: categoryName, amount: total, iconName: iconName)
-        }.sorted { $0.amount > $1.amount }
-    }
-    
-    private var incomeCategories: [CategoryBreakdown] {
-        let incomeTransactions = monthlyTransactions.filter { $0.type == .income }
-        let grouped = Dictionary(grouping: incomeTransactions) { $0.category?.name ?? "Uncategorized" }
-        
-        return grouped.map { categoryName, transactions in
-            let total = transactions.reduce(0) { $0 + $1.amount }
-            let iconName = transactions.first?.category?.iconName ?? "questionmark.circle"
-            return CategoryBreakdown(name: categoryName, amount: total, iconName: iconName)
-        }.sorted { $0.amount > $1.amount }
+        return [
+            SpendingDataItem(category: "Spent", amount: spent, color: Color(hex: "FB8500") ?? .red),
+            SpendingDataItem(category: "Remaining", amount: remaining, color: Color(hex: "219EBC") ?? .blue)
+        ]
     }
 }
 
-struct CategoryBreakdown {
-    let name: String
+struct SpendingDataItem {
+    let category: String
     let amount: Double
-    let iconName: String
+    let color: Color
 }
 
-struct CategoryBreakdownCard: View {
-    let title: String
-    let categories: [CategoryBreakdown]
-    let type: TransactionType
+struct RecentTransactionsView: View {
+    let transactions: [Transaction]
     
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                Text("Recent Transactions")
+                    .font(.title3)
+                    .fontWeight(.bold)
                 
                 Spacer()
                 
-                Text("$\(totalAmount, specifier: "%.2f")")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(type == .expense ? .red : .green)
+                // See More Button
+                if transactions.count > 5 {
+                    Button(action: {
+                        // TODO: Navigate to all transactions view
+                    }) {
+                        Text("See More")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "20B2AA") ?? .blue)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 12)
+            .padding(.horizontal, 12)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
             
-            Divider()
-            
-            // Categories List
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if categories.isEmpty {
-                        VStack(spacing: 8) {
-                            Image(systemName: "tray")
-                                .font(.title2)
-                                .foregroundColor(.gray)
-                            Text("No \(type == .expense ? "expenses" : "income") this month")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    } else {
-                        ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
-                            BreakdownCategoryRow(
-                                category: category,
-                                type: type,
-                                isLast: index == categories.count - 1
-                            )
-                        }
+            // Transactions List
+            VStack(spacing: 0) {
+                if recentTransactions.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "tray")
+                            .font(.title2)
+                            .foregroundColor(.gray)
+                        Text("No recent transactions")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                } else {
+                    ForEach(Array(recentTransactions.enumerated()), id: \.offset) { index, transaction in
+                        RecentTransactionRow(
+                            transaction: transaction,
+                            isLast: index == recentTransactions.count - 1
+                        )
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.bottom, 12)
         }
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
     
-    private var totalAmount: Double {
-        return categories.reduce(0) { $0 + $1.amount }
+    private var recentTransactions: [Transaction] {
+        return transactions
+            .sorted { $0.date > $1.date }
+            .prefix(5)
+            .map { $0 }
     }
 }
 
-struct BreakdownCategoryRow: View {
-    let category: CategoryBreakdown
-    let type: TransactionType
+struct RecentTransactionRow: View {
+    let transaction: Transaction
     let isLast: Bool
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: category.iconName)
-                    .font(.title3)
-                    .foregroundColor(type == .expense ? .red : .green)
-                    .frame(width: 24)
+            HStack(spacing: 16) {
+                // Category icon
+                CategoryIconView(category: transaction.category, size: 40)
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(category.name)
-                        .font(.body)
-                        .fontWeight(.medium)
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(transaction.name)
+                            .font(.body)
+                            .fontWeight(.regular)
+                            .lineLimit(1)
+                        Text(transaction.category?.name ?? "Uncategorized")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
                     
-                    Text(category.amount == 0 ? "No transactions" : "")
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(transaction.displayAmount)
+                            .font(.body)
+                            .fontWeight(.light)
+                            .foregroundColor(transaction.type == .expense ? .red : .green)
+                        Text(formatDateFull(transaction.date))
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    if let notes = transaction.notes, !notes.isEmpty {
+                        Image(systemName: "note.text")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                            .padding(.leading, 8)
+                    }
                 }
-                
-                Spacer()
-                
-                Text("\(type == .expense ? "-" : "+")$\(category.amount, specifier: "%.2f")")
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(type == .expense ? .red : .green)
             }
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
             
             if !isLast {
-                Divider()
+                Divider()// Align with text content
             }
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if calendar.isDate(date, equalTo: Date(), toGranularity: .weekOfYear) {
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: date)
+        } else {
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+    
+    private func formatDateFull(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
+
+}
+
+struct CalendarPageView: View {
+    let selectedMonth: Date
+    let transactions: [Transaction]
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                CalendarView(
+                    selectedMonth: selectedMonth,
+                    transactions: transactions
+                )
+                .background(Color.white)
+                .cornerRadius(16)
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .navigationTitle("Calendar")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Done") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
+            .background(Color(UIColor.systemGroupedBackground))
         }
     }
 }

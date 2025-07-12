@@ -46,8 +46,21 @@ struct AddTransactionView: View {
                     // Category Section
                     categorySection
                     
-                    // Date and Time Section
-                    dateTimeSection
+                    // Category
+                    Picker("Category", selection: $selectedCategory) {
+                        Text("Select Category").tag(nil as Category?)
+                        ForEach(availableCategories, id: \.name) { category in
+                            HStack {
+                                CategoryIconView(category: category, size: 20)
+                                Text(category.name)
+                            }
+                            .tag(category as Category?)
+                        }
+                    }
+                    
+                    // Date
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+
                     
                     // Notes Section
                     notesSection

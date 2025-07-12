@@ -592,6 +592,8 @@ struct BudgetCategoryRow: View {
     
     var body: some View {
                 HStack {
+                    CategoryIconView(category: category, size: 20)
+                    
                     Text(category.name)
                         .font(.body)
                 

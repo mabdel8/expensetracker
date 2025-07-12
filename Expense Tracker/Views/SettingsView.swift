@@ -123,9 +123,7 @@ struct CategoryRow: View {
     
     var body: some View {
         HStack {
-            Image(systemName: category.iconName)
-                .foregroundColor(category.color)
-                .frame(width: 24, height: 24)
+            CategoryIconView(category: category, size: 24)
             
             Text(category.name)
             
