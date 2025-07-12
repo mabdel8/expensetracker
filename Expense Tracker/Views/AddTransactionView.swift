@@ -49,8 +49,11 @@ struct AddTransactionView: View {
                     Picker("Category", selection: $selectedCategory) {
                         Text("Select Category").tag(nil as Category?)
                         ForEach(availableCategories, id: \.name) { category in
-                            Label(category.name, systemImage: category.iconName)
-                                .tag(category as Category?)
+                            HStack {
+                                CategoryIconView(category: category, size: 20)
+                                Text(category.name)
+                            }
+                            .tag(category as Category?)
                         }
                     }
                     
