@@ -28,6 +28,7 @@ struct ContentView: View {
                     Label("Settings", systemImage: "gear")
                 }
         }
+        .tint(Color(hex: "023047") ?? .blue)
         .sheet(isPresented: $showingAddTransaction) {
             AddTransactionView()
         }
@@ -44,7 +45,7 @@ struct ContentView: View {
                             .font(.title2)
                             .foregroundColor(.white)
                             .frame(width: 56, height: 56)
-                            .background(Color.blue)
+                            .background(Color(hex: "219EBC") ?? .blue)
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                     }
