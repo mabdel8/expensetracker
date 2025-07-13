@@ -202,104 +202,108 @@ struct BudgetView: View {
     }
     
     private var incomeSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header with icon, title, and total
             HStack {
                 HStack(spacing: 8) {
-                    Image(systemName: "banknote.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.green)
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Image(systemName: "banknote.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white)
+                        )
                     Text("Income")
                         .font(.title3)
                         .fontWeight(.bold)
                 }
+                
                 Spacer()
-                Button(action: {
-                    addIncomeItem()
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Add Income")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(canAddIncomeItem ? Color.green : Color.gray)
-                    .cornerRadius(20)
+                
+                if totalIncome > 0 {
+                    Text(formatCurrency(totalIncome))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
                 }
-                .disabled(!canAddIncomeItem)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 16)
             
-            VStack(spacing: 0) {
-                // Display income from transactions (blue plus button)
-                ForEach(currentMonthIncomeTransactions, id: \.id) { transaction in
-                    HStack(spacing: 16) {
+            // Display income from transactions (blue plus button)
+            ForEach(currentMonthIncomeTransactions, id: \.id) { transaction in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(transaction.name)
                             .font(.body)
                             .fontWeight(.medium)
-                        
-                        Spacer()
-                        
-                        Text("+\(formatCurrency(transaction.amount))")
-                            .font(.body)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                    }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
-                    
-                    if transaction.id != currentMonthIncomeTransactions.last?.id || !incomeItems.isEmpty {
-                        Divider()
-                            .padding(.leading, 20)
-                    }
-                }
-                
-                // Display manual income items (budget planning)
-                ForEach(incomeItems.indices, id: \.self) { index in
-                    IncomeItemRow(
-                        item: incomeItems[index],
-                        onNameChange: { newName in
-                            incomeItems[index].name = newName
-                        },
-                        onAmountChange: { newAmount in
-                            incomeItems[index].amount = newAmount
-                            updateTotalIncome()
-                        }
-                    )
-                    
-                    if index != incomeItems.count - 1 {
-                        Divider()
-                            .padding(.leading, 20)
-                    }
-                }
-                .onDelete(perform: deleteIncomeItem)
-                
-                // Empty state when no income
-                if incomeItems.isEmpty && currentMonthIncomeTransactions.isEmpty {
-                    VStack(spacing: 12) {
-                        Text("No Income Added")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
-                        Text("Tap 'Add Income' to start planning your budget")
+                        Text(formatDate(transaction.date))
                             .font(.caption)
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(40)
+                    
+                    Spacer()
+                    
+                    Text("+\(formatCurrency(transaction.amount))")
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                 }
+                .padding(.vertical, 4)
             }
-            .background(Color.white)
-            .cornerRadius(16)
-            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
-            .padding(.horizontal)
-            .padding(.bottom, 24)
+            
+            // Display manual income items (budget planning)
+            ForEach(incomeItems.indices, id: \.self) { index in
+                IncomeItemRow(
+                    item: incomeItems[index],
+                    onNameChange: { newName in
+                        incomeItems[index].name = newName
+                    },
+                    onAmountChange: { newAmount in
+                        incomeItems[index].amount = newAmount
+                        updateTotalIncome()
+                    }
+                )
+            }
+            .onDelete(perform: deleteIncomeItem)
+            
+            // Add Income button
+            HStack {
+                Button(action: {
+                    addIncomeItem()
+                }) {
+                    HStack {
+                        Image(systemName: "plus")
+                        Text("Add Income")
+                    }
+                    .foregroundColor(.green)
+                }
+                .disabled(!canAddIncomeItem)
+                
+                Spacer()
+            }
+            
+            // Empty state when no income
+            if incomeItems.isEmpty && currentMonthIncomeTransactions.isEmpty {
+                VStack(spacing: 12) {
+                    Text("No Income Added")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Tap 'Add Income' to start planning your budget")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(40)
+            }
         }
+        .padding(20)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .padding(.horizontal)
+        .padding(.bottom, 16)
     }
     
     private var spendingCategoriesSection: some View {
