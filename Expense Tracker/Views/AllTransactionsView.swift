@@ -41,13 +41,6 @@ struct AllTransactionsView: View {
             .background(Color.white)
             .navigationTitle("All Transactions")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
             .searchable(text: $searchText, prompt: "Search transactions...")
         }
     }
