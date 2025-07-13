@@ -11,16 +11,15 @@ import SwiftData
 struct DefaultCategories {
     
     static let expenseCategories = [
+        CategoryData(name: "Bills & Utilities", iconName: "doc.text.fill", colorHex: "BB8FCE", transactionType: .expense),
         CategoryData(name: "Food & Dining", iconName: "fork.knife", colorHex: "FF6B6B", transactionType: .expense),
-        CategoryData(name: "Transportation", iconName: "car.fill", colorHex: "4ECDC4", transactionType: .expense),
+        CategoryData(name: "Healthcare", iconName: "heart.fill", colorHex: "F1948A", transactionType: .expense),
+        CategoryData(name: "Personal Care", iconName: "person.fill", colorHex: "F8C471", transactionType: .expense),
         CategoryData(name: "Shopping", iconName: "bag.fill", colorHex: "45B7D1", transactionType: .expense),
         CategoryData(name: "Entertainment", iconName: "gamecontroller.fill", colorHex: "F7DC6F", transactionType: .expense),
-        CategoryData(name: "Bills & Utilities", iconName: "doc.text.fill", colorHex: "BB8FCE", transactionType: .expense),
-        CategoryData(name: "Healthcare", iconName: "heart.fill", colorHex: "F1948A", transactionType: .expense),
+        CategoryData(name: "Transportation", iconName: "car.fill", colorHex: "4ECDC4", transactionType: .expense),
         CategoryData(name: "Education", iconName: "book.fill", colorHex: "85C1E9", transactionType: .expense),
-        CategoryData(name: "Travel", iconName: "airplane", colorHex: "82E0AA", transactionType: .expense),
-        CategoryData(name: "Personal Care", iconName: "person.fill", colorHex: "F8C471", transactionType: .expense),
-        CategoryData(name: "Other", iconName: "ellipsis.circle.fill", colorHex: "D5DBDB", transactionType: .expense)
+        CategoryData(name: "Travel", iconName: "airplane", colorHex: "82E0AA", transactionType: .expense)
     ]
     
     static let incomeCategories = [
@@ -29,8 +28,7 @@ struct DefaultCategories {
         CategoryData(name: "Investment", iconName: "chart.line.uptrend.xyaxis", colorHex: "F7DC6F", transactionType: .income),
         CategoryData(name: "Business", iconName: "building.2.fill", colorHex: "AF7AC5", transactionType: .income),
         CategoryData(name: "Bonus", iconName: "gift.fill", colorHex: "FF9F43", transactionType: .income),
-        CategoryData(name: "Rental", iconName: "house.fill", colorHex: "54A0FF", transactionType: .income),
-        CategoryData(name: "Other", iconName: "ellipsis.circle.fill", colorHex: "D5DBDB", transactionType: .income)
+        CategoryData(name: "Rental", iconName: "house.fill", colorHex: "54A0FF", transactionType: .income)
     ]
     
     static func createDefaultCategories(in context: ModelContext) {
