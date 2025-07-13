@@ -40,13 +40,13 @@ struct AllTransactionsView: View {
             }
             .background(Color.white)
             .navigationTitle("All Transactions")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "Search transactions...")
         }
     }
     
     private var filterSortControls: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             // Filter Picker
             Picker("Filter", selection: $selectedFilter) {
                 ForEach(TransactionFilter.allCases, id: \.self) { filter in
@@ -73,8 +73,8 @@ struct AllTransactionsView: View {
             }
             .padding(.horizontal)
         }
-                 .padding(.vertical, 8)
-         .background(Color.white)
+        .padding(.vertical, 4)
+        .background(Color.white)
     }
     
     private var emptyState: some View {
@@ -206,7 +206,7 @@ struct AllTransactionsView: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.locale = Locale.current
-        let prefix = amount >= 0 ? "+" : ""
+        let prefix = amount >= 0 ? "+" : "-"
         return "\(prefix)\(formatter.string(from: NSNumber(value: abs(amount))) ?? "$0.00")"
     }
 }
