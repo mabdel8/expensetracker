@@ -28,6 +28,13 @@ struct AddTransactionView: View {
         categories.filter { $0.transactionType == selectedType }
     }
     
+    // Color scheme based on the provided image
+    private let lightBlue = Color(red: 0.56, green: 0.79, blue: 0.90) // #8ECAE6
+    private let teal = Color(red: 0.13, green: 0.62, blue: 0.74) // #219EBC
+    private let darkTeal = Color(red: 0.01, green: 0.19, blue: 0.28) // #023047
+    private let yellow = Color(red: 1.0, green: 0.72, blue: 0.02) // #FFB703
+    private let orange = Color(red: 0.98, green: 0.52, blue: 0.0) // #FB8500
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -37,39 +44,26 @@ struct AddTransactionView: View {
                     .padding(.top, 20)
                 
                 // Main content
-                VStack(spacing: 16) {
-                    // Type Selector
-                    typeSelector
-                    
-                    // Amount Section
-                    amountSection
-                    
-                    // Category Section
-                    categorySection
-                    
-                    // Category
-                    Picker("Category", selection: $selectedCategory) {
-                        Text("Select Category").tag(nil as Category?)
-                        ForEach(availableCategories, id: \.name) { category in
-                            HStack {
-                                CategoryIconView(category: category, size: 20)
-                                Text(category.name)
-                            }
-                            .tag(category as Category?)
-                        }
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Type Selector
+                        typeSelector
+                        
+                        // Amount Section
+                        amountSection
+                        
+                        // Category Section
+                        categorySection
+                        
+                        // Date Section
+                        dateSection
+                        
+                        // Notes Section
+                        notesSection
                     }
-                    
-                    // Date
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
-
-                    
-                    // Notes Section
-                    notesSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                
-                Spacer()
                 
                 // Save and Cancel buttons
                 HStack(spacing: 16) {
@@ -87,11 +81,10 @@ struct AddTransactionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color.blue)
+                    .background(canSave ? teal : Color.gray.opacity(0.3))
                     .foregroundColor(.white)
                     .cornerRadius(16)
-                    .disabled(name.isEmpty || amount.isEmpty || selectedCategory == nil)
-                    .opacity((name.isEmpty || amount.isEmpty || selectedCategory == nil) ? 0.5 : 1)
+                    .disabled(!canSave)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 40)
@@ -104,10 +97,15 @@ struct AddTransactionView: View {
                         Button("Done") {
                             isAmountFocused = false
                         }
+                        .foregroundColor(teal)
                     }
                 }
             }
         }
+    }
+    
+    private var canSave: Bool {
+        !name.isEmpty && !amount.isEmpty && selectedCategory != nil
     }
     
     private var headerSection: some View {
@@ -115,14 +113,15 @@ struct AddTransactionView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.title2)
-                    .foregroundColor(.primary)
+                    .foregroundColor(darkTeal)
             }
             
             Spacer()
             
-            Text("Add transaction")
+            Text("Add Transaction")
                 .font(.headline)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
             
             Spacer()
             
@@ -133,191 +132,192 @@ struct AddTransactionView: View {
     }
     
     private var typeSelector: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Choose")
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Transaction Type")
                 .font(.headline)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
             
             HStack(spacing: 12) {
-                Button(action: { selectedType = .income }) {
-                    HStack {
+                Button(action: { 
+                    selectedType = .income 
+                    selectedCategory = nil // Reset category when type changes
+                }) {
+                    HStack(spacing: 8) {
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 16))
+                            .font(.system(size: 16, weight: .medium))
                         Text("Income")
                             .font(.body)
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(selectedType == .income ? Color.blue : Color.gray.opacity(0.1))
-                    .foregroundColor(selectedType == .income ? .white : .primary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(selectedType == .income ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
-                    )
-                    .cornerRadius(22)
+                    .frame(height: 48)
+                    .background(selectedType == .income ? teal : lightBlue.opacity(0.3))
+                    .foregroundColor(selectedType == .income ? .white : darkTeal)
+                    .cornerRadius(24)
                 }
                 
-                Button(action: { selectedType = .expense }) {
-                    HStack {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 16))
+                Button(action: { 
+                    selectedType = .expense 
+                    selectedCategory = nil // Reset category when type changes
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.down.right")
+                            .font(.system(size: 16, weight: .medium))
                         Text("Expense")
                             .font(.body)
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(selectedType == .expense ? Color.blue : Color.gray.opacity(0.1))
-                    .foregroundColor(selectedType == .expense ? .white : .primary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(selectedType == .expense ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
-                    )
-                    .cornerRadius(22)
+                    .frame(height: 48)
+                    .background(selectedType == .expense ? orange : lightBlue.opacity(0.3))
+                    .foregroundColor(selectedType == .expense ? .white : darkTeal)
+                    .cornerRadius(24)
                 }
             }
         }
     }
     
     private var amountSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Amount")
                     .font(.headline)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
+                    .foregroundColor(darkTeal)
                 
                 HStack {
-                    TextField("Enter amount", text: $amount)
+                    Text("$")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(darkTeal)
+                    
+                    TextField("0.00", text: $amount)
                         .keyboardType(.decimalPad)
                         .focused($isAmountFocused)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(darkTeal)
+                    
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.1))
+                .padding(.vertical, 16)
+                .background(Color(.systemGray6))
                 .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isAmountFocused ? teal : Color.clear, lineWidth: 2)
+                )
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                Text("Name")
+                Text("Description")
                     .font(.headline)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
+                    .foregroundColor(darkTeal)
                 
-                HStack {
-                    TextField("Enter name", text: $name)
-                        .focused($isNameFocused)
-                        .submitLabel(.done)
-                        .onSubmit {
-                            isNameFocused = false
-                        }
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
+                TextField("Enter description", text: $name)
+                    .focused($isNameFocused)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        isNameFocused = false
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isNameFocused ? teal : Color.clear, lineWidth: 2)
+                    )
             }
         }
     }
     
     private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Category")
                 .font(.headline)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
             
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 16) {
                     ForEach(availableCategories, id: \.name) { category in
-                        CategoryButton(
-                            category: category,
-                            isSelected: selectedCategory?.name == category.name,
-                            action: { selectedCategory = category }
-                        )
-                    }
-                    
-                    // Custom category button
-                    Button(action: {
-                        // Handle custom category - for now just show placeholder
-                    }) {
-                        VStack(spacing: 6) {
-                            Image(systemName: "plus")
-                                .font(.title2)
-                                .foregroundColor(.gray)
-                            Text("Custom")
-                                .font(.caption)
-                                .foregroundColor(.gray)
+                        Button(action: {
+                            selectedCategory = category
+                        }) {
+                            VStack(spacing: 8) {
+                                CategoryIconView(category: category, size: 50)
+                                
+                                Text(category.name)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(darkTeal)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .frame(width: 80, height: 90)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedCategory?.name == category.name ? (selectedType == .income ? teal : orange).opacity(0.1) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedCategory?.name == category.name ? (selectedType == .income ? teal : orange) : Color.clear, lineWidth: 2)
+                            )
                         }
-                        .frame(width: 70, height: 70)
-                        .background(Color.clear)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
-                        )
-                        .cornerRadius(12)
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 4)
             }
+            .scrollClipDisabled()
         }
+        .padding(.vertical, 8)
     }
     
-    private var dateTimeSection: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Date")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                
-                HStack {
-                    Image(systemName: "calendar")
-                        .foregroundColor(.gray)
-                    DatePicker("", selection: $date, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(CompactDatePickerStyle())
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
-            }
+    private var dateSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pick a date")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Time")
-                    .font(.headline)
-                    .fontWeight(.medium)
+            HStack(spacing: 12) {
+                Image(systemName: "calendar")
+                    .foregroundColor(teal)
+                    .font(.system(size: 20))
                 
-                HStack {
-                    Image(systemName: "clock")
-                        .foregroundColor(.gray)
-                    DatePicker("", selection: $date, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .datePickerStyle(CompactDatePickerStyle())
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .labelsHidden()
+                    .datePickerStyle(CompactDatePickerStyle())
+                    .accentColor(teal)
+                    .font(.body)
+                
+                Spacer()
             }
         }
     }
     
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Notes")
+            Text("Notes (Optional)")
                 .font(.headline)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
             
-            TextField("Add details", text: $notes, axis: .vertical)
-                .lineLimit(2...3)
+            TextField("Add additional details...", text: $notes, axis: .vertical)
+                .lineLimit(3...5)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.1))
+                .padding(.vertical, 16)
+                .background(Color(.systemGray6))
                 .cornerRadius(12)
         }
+        .padding(.bottom, 20)
     }
     
     private func saveTransaction() {
@@ -339,31 +339,6 @@ struct AddTransactionView: View {
             dismiss()
         } catch {
             print("Error saving transaction: \(error)")
-        }
-    }
-}
-
-struct CategoryButton: View {
-    let category: Category
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: category.iconName)
-                    .font(.title2)
-                    .foregroundColor(isSelected ? .white : .primary)
-                
-                Text(category.name)
-                    .font(.caption)
-                    .foregroundColor(isSelected ? .white : .primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
-            .frame(width: 70, height: 70)
-            .background(isSelected ? Color.blue : Color.gray.opacity(0.1))
-            .cornerRadius(12)
         }
     }
 }
