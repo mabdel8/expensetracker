@@ -275,7 +275,7 @@ struct BudgetView: View {
                         Image(systemName: "plus")
                         Text("Add Income")
                     }
-                    .foregroundColor(.green)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
                 }
                 .disabled(!canAddIncomeItem)
                 
@@ -553,7 +553,7 @@ struct CategorySectionView: View {
                         onSaveItem()
                     }
                     .disabled(newItemName.isEmpty || newItemAmount.isEmpty)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
                 }
             } else {
                 // Add Item button
@@ -568,7 +568,7 @@ struct CategorySectionView: View {
                             Image(systemName: "plus")
                             Text("Add Item")
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     }
                     
                     Spacer()
@@ -695,7 +695,7 @@ struct IncomeItemRow: View {
                                     isEditingAmount = false
                                     isAmountFocused = false
                                 }
-                                .foregroundColor(.blue)
+                                .foregroundColor(Color(hex: "023047") ?? .blue)
                             }
                         }
                     }
