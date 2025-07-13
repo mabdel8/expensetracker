@@ -15,6 +15,8 @@ struct Expense_TrackerApp: App {
             Transaction.self,
             Category.self,
             Budget.self,
+            MonthlyBudget.self,
+            CategoryBudget.self,
             RecurringSubscription.self,
             PlannedIncome.self,
             PlannedExpense.self

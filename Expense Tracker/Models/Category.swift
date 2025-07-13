@@ -25,6 +25,10 @@ class Category {
     @Relationship(deleteRule: .cascade)
     var recurringSubscriptions: [RecurringSubscription]? = []
     
+    // Relationship: A category can have many budget allocations
+    @Relationship(deleteRule: .cascade)
+    var budgets: [CategoryBudget]? = []
+    
     init(name: String, iconName: String, colorHex: String, transactionType: TransactionType) {
         self.name = name
         self.iconName = iconName
@@ -35,6 +39,19 @@ class Category {
     // Computed property to get Color from hex string
     var color: Color {
         Color(hex: colorHex) ?? .blue
+    }
+    
+    // Get budget allocation for a specific month
+    func getBudgetAllocation(for month: Date) -> CategoryBudget? {
+        let calendar = Calendar.current
+        return budgets?.first { budget in
+            calendar.isDate(budget.month, equalTo: month, toGranularity: .month)
+        }
+    }
+    
+    // Get allocated amount for a specific month
+    func getAllocatedAmount(for month: Date) -> Double {
+        return getBudgetAllocation(for: month)?.allocatedAmount ?? 0
     }
 }
 
