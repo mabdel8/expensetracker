@@ -18,6 +18,8 @@ struct AddTransactionView: View {
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
+    @State private var isRecurring = false
+    @State private var selectedFrequency: RecurrenceFrequency = .monthly
     @FocusState private var isAmountFocused: Bool
     @FocusState private var isNameFocused: Bool
     
@@ -59,6 +61,11 @@ struct AddTransactionView: View {
                         
                         // Notes Section
                         notesSection
+                        
+                        // Recurring Subscription Section
+                        if selectedType == .expense {
+                            recurringSection
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
@@ -319,19 +326,100 @@ struct AddTransactionView: View {
         .padding(.bottom, 20)
     }
     
+    private var recurringSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recurring Subscription")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(darkTeal)
+            
+            // Recurring Toggle
+            HStack {
+                Toggle("Make this a recurring subscription", isOn: $isRecurring)
+                    .toggleStyle(SwitchToggleStyle(tint: teal))
+                    .font(.body)
+                    .foregroundColor(darkTeal)
+            }
+            .padding(.vertical, 8)
+            
+            // Frequency Picker (only visible when recurring is enabled)
+            if isRecurring {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Frequency")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(darkTeal)
+                    
+                    Picker("Frequency", selection: $selectedFrequency) {
+                        ForEach(RecurrenceFrequency.allCases, id: \.self) { frequency in
+                            Text(frequency.displayName).tag(frequency)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .background(lightBlue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .padding(.top, 8)
+                .animation(.easeInOut(duration: 0.2), value: isRecurring)
+                
+                // Next Payment Date Preview
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Next Payment")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(darkTeal)
+                    
+                    Text(formatNextPaymentDate())
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 8)
+            }
+        }
+        .padding(.bottom, 20)
+    }
+    
+    private func formatNextPaymentDate() -> String {
+        let nextDate = RecurringSubscription.calculateNextDueDate(from: date, frequency: selectedFrequency)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: nextDate)
+    }
+    
     private func saveTransaction() {
         guard let amountValue = Double(amount) else { return }
         
-        let transaction = Transaction(
-            name: name.isEmpty ? selectedCategory?.name ?? "Transaction" : name,
-            date: date,
-            amount: amountValue,
-            notes: notes.isEmpty ? nil : notes,
-            type: selectedType,
-            category: selectedCategory
-        )
-        
-        modelContext.insert(transaction)
+        if isRecurring && selectedType == .expense {
+            // Create a recurring subscription
+            let recurringSubscription = RecurringSubscription(
+                name: name.isEmpty ? selectedCategory?.name ?? "Subscription" : name,
+                amount: amountValue,
+                frequency: selectedFrequency,
+                startDate: date,
+                type: selectedType,
+                category: selectedCategory,
+                notes: notes.isEmpty ? nil : notes
+            )
+            
+            modelContext.insert(recurringSubscription)
+            
+            // Create the initial transaction
+            let initialTransaction = recurringSubscription.createTransaction()
+            modelContext.insert(initialTransaction)
+            
+        } else {
+            // Create a regular transaction
+            let transaction = Transaction(
+                name: name.isEmpty ? selectedCategory?.name ?? "Transaction" : name,
+                date: date,
+                amount: amountValue,
+                notes: notes.isEmpty ? nil : notes,
+                type: selectedType,
+                category: selectedCategory
+            )
+            
+            modelContext.insert(transaction)
+        }
         
         do {
             try modelContext.save()
@@ -344,5 +432,5 @@ struct AddTransactionView: View {
 
 #Preview {
     AddTransactionView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
 } 

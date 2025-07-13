@@ -17,6 +17,12 @@ struct DashboardView: View {
     @State private var currentDate = Date()
     @State private var selectedMonth = Date()
     @State private var showCalendar = false
+    @State private var showRecurringSubscriptions = false
+    @State private var showAllTransactions = false
+    
+    private var recurringSubscriptionService: RecurringSubscriptionService {
+        RecurringSubscriptionService(modelContext: modelContext)
+    }
     
     var body: some View {
         NavigationView {
@@ -24,6 +30,14 @@ struct DashboardView: View {
                 VStack(spacing: 20) {
                 // Top navigation header
                 HStack {
+                    Button(action: {
+                        showRecurringSubscriptions.toggle()
+                    }) {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(Color(hex: "023047") ?? .blue)
+                    }
+                    
                     Spacer()
                     
                     Button(action: {
@@ -73,7 +87,8 @@ struct DashboardView: View {
                 
                 // Recent Transactions
                 RecentTransactionsView(
-                    transactions: transactions
+                    transactions: transactions,
+                    showAllTransactions: $showAllTransactions
                 )
                 .padding(.horizontal)
                 
@@ -85,6 +100,15 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showCalendar) {
             CalendarPageView(selectedMonth: selectedMonth, transactions: transactions)
+        }
+        .sheet(isPresented: $showRecurringSubscriptions) {
+            RecurringSubscriptionsView()
+        }
+        .sheet(isPresented: $showAllTransactions) {
+            AllTransactionsView()
+        }
+        .onAppear {
+            processDueSubscriptions()
         }
     }
     
@@ -100,6 +124,10 @@ struct DashboardView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
         return formatter.string(from: date)
+    }
+    
+    private func processDueSubscriptions() {
+        recurringSubscriptionService.processDueSubscriptions()
     }
 }
 
@@ -148,6 +176,24 @@ struct CalendarView: View {
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
+            
+            // Monthly Net Balance
+            Divider()
+                .padding(.horizontal, 8)
+            
+            HStack {
+                Text("Net Balance")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(monthlyNetBalance >= 0 ? "+" : "")$\(monthlyNetBalance, specifier: "%.0f")")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(monthlyNetBalance >= 0 ? .green : .red)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .padding(.top, 8)
     }
@@ -191,6 +237,18 @@ struct CalendarView: View {
             calendar.isDate(transaction.date, inSameDayAs: date) && transaction.type == .expense
         }.reduce(0) { $0 + $1.amount }
     }
+    
+    private var monthlyNetBalance: Double {
+        let monthlyIncome = transactions.filter { transaction in
+            calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month) && transaction.type == .income
+        }.reduce(0) { $0 + $1.amount }
+        
+        let monthlyExpenses = transactions.filter { transaction in
+            calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month) && transaction.type == .expense
+        }.reduce(0) { $0 + $1.amount }
+        
+        return monthlyIncome - monthlyExpenses
+    }
 }
 
 struct CalendarDayView: View {
@@ -212,13 +270,13 @@ struct CalendarDayView: View {
             
             VStack(spacing: 1) {
                 if income > 0 {
-                    Text("+\(income, specifier: "%.0f")")
+                    Text("+$\(income, specifier: "%.0f")")
                         .font(.system(size: 8, weight: .semibold))
                         .foregroundColor(.green)
                 }
                 
                 if expense > 0 {
-                    Text("-\(expense, specifier: "%.0f")")
+                    Text("-$\(expense, specifier: "%.0f")")
                         .font(.system(size: 8, weight: .semibold))
                         .foregroundColor(.red)
                 }
@@ -228,16 +286,8 @@ struct CalendarDayView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isToday ? (Color(hex: "20B2AA") ?? .blue).opacity(0.1) : Color.white)
+                .fill(Color.white)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(isToday ? (Color(hex: "20B2AA") ?? .blue) : Color.clear, lineWidth: 1)
-        )
-    }
-    
-    private var isToday: Bool {
-        Calendar.current.isDate(date, inSameDayAs: Date())
     }
 }
 
@@ -374,6 +424,7 @@ struct SpendingDataItem {
 
 struct RecentTransactionsView: View {
     let transactions: [Transaction]
+    @Binding var showAllTransactions: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -388,7 +439,7 @@ struct RecentTransactionsView: View {
                 // See More Button
                 if transactions.count > 5 {
                     Button(action: {
-                        // TODO: Navigate to all transactions view
+                        showAllTransactions = true
                     }) {
                         Text("See More")
                             .font(.body)
@@ -460,10 +511,30 @@ struct RecentTransactionRow: View {
                     Spacer()
                     
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(transaction.displayAmount)
-                            .font(.body)
-                            .fontWeight(.light)
-                            .foregroundColor(transaction.type == .expense ? .red : .green)
+                        HStack(spacing: 6) {
+                            // Show recurring tag for recurring transactions
+                            if transaction.isRecurring {
+                                HStack(spacing: 4) {
+                                    Text("recurring")
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                    
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.caption2)
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color(hex: "023047"))
+                                .clipShape(Capsule())
+                            }
+                            
+                            Text(transaction.displayAmount)
+                                .font(.body)
+                                .fontWeight(.light)
+                                .foregroundColor(transaction.type == .expense ? .red : .green)
+                        }
                         Text(formatDateFull(transaction.date))
                             .font(.caption)
                             .foregroundColor(.gray)
@@ -539,12 +610,12 @@ struct CalendarPageView: View {
                     presentationMode.wrappedValue.dismiss()
                 }
             )
-            .background(Color(UIColor.systemGroupedBackground))
+            .background(Color.white)
         }
     }
 }
 
 #Preview {
     DashboardView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
 } 

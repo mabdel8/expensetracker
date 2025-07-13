@@ -726,5 +726,5 @@ enum CategoryGroup: String, CaseIterable {
 
 #Preview {
     BudgetView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
 } 

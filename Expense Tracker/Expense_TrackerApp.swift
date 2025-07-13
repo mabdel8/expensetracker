@@ -14,7 +14,8 @@ struct Expense_TrackerApp: App {
         let schema = Schema([
             Transaction.self,
             Category.self,
-            Budget.self
+            Budget.self,
+            RecurringSubscription.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
