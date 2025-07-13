@@ -23,6 +23,10 @@ struct BudgetView: View {
     @State private var showingAddItemForGroup: String? = nil
     @State private var newItemName: String = ""
     @State private var newItemAmount: String = ""
+    @State private var showingAddIncome: Bool = false
+    @State private var newIncomeName: String = ""
+    @State private var newIncomeAmount: String = ""
+    @FocusState private var isIncomeAmountFocused: Bool
 
     
     private var expenseCategories: [Category] {
@@ -72,10 +76,10 @@ struct BudgetView: View {
     }
     
     private var canAddIncomeItem: Bool {
-        // Allow adding the first item, or if all existing items are properly filled out
-        incomeItems.isEmpty || incomeItems.allSatisfy { 
+        // Allow adding income when not currently showing the add form
+        !showingAddIncome && (incomeItems.isEmpty || incomeItems.allSatisfy { 
             !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.amount > 0 
-        }
+        })
     }
     
     var body: some View {
@@ -266,37 +270,65 @@ struct BudgetView: View {
             }
             .onDelete(perform: deleteIncomeItem)
             
-            // Add Income button
-            HStack {
-                Button(action: {
-                    addIncomeItem()
-                }) {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Income")
+            // Add Income button or inline input
+            if showingAddIncome {
+                // Inline input row when adding income
+                HStack {
+                    TextField("Income Name", text: $newIncomeName)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .submitLabel(.done)
+                    
+                    Spacer()
+                    
+                    TextField("$0.00", text: $newIncomeAmount)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
+                        .focused($isIncomeAmountFocused)
+                        .onSubmit {
+                            isIncomeAmountFocused = false
+                        }
+                }
+                .padding(.vertical, 8)
+                
+                // Cancel and Done buttons
+                HStack {
+                    Button("Cancel") {
+                        cancelAddIncome()
                     }
+                    .foregroundColor(.red)
+                    
+                    Spacer()
+                    
+                    Button("Done") {
+                        saveIncomeItem()
+                    }
+                    .disabled(newIncomeName.isEmpty || newIncomeAmount.isEmpty)
                     .foregroundColor(Color(hex: "023047") ?? .blue)
                 }
-                .disabled(!canAddIncomeItem)
-                
-                Spacer()
+            } else {
+                // Add Income button
+                HStack {
+                    Button(action: {
+                        showingAddIncome = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            isIncomeAmountFocused = true
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "plus")
+                            Text("Add Income")
+                        }
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
+                    }
+                    .disabled(!canAddIncomeItem)
+                    
+                    Spacer()
+                }
             }
             
-            // Empty state when no income
-            if incomeItems.isEmpty && currentMonthIncomeTransactions.isEmpty {
-                VStack(spacing: 12) {
-                    Text("No Income Added")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    Text("Tap 'Add Income' to start planning your budget")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(40)
-            }
+
         }
         .padding(20)
         .background(Color.white)
@@ -304,6 +336,17 @@ struct BudgetView: View {
         .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         .padding(.horizontal)
         .padding(.bottom, 16)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if isIncomeAmountFocused {
+                    Spacer()
+                    Button("Done") {
+                        isIncomeAmountFocused = false
+                    }
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
+                }
+            }
+        }
     }
     
     private var spendingCategoriesSection: some View {
@@ -374,11 +417,7 @@ struct BudgetView: View {
     
 
     
-    private func addIncomeItem() {
-        let newItem = IncomeItem(name: "", amount: 0)
-        incomeItems.append(newItem)
-        updateTotalIncome()
-    }
+
     
     private func updateTotalIncome() {
         let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
@@ -389,6 +428,25 @@ struct BudgetView: View {
     private func deleteIncomeItem(at offsets: IndexSet) {
         incomeItems.remove(atOffsets: offsets)
         updateTotalIncome()
+    }
+    
+    private func saveIncomeItem() {
+        guard let amount = Double(newIncomeAmount), amount > 0 else { return }
+        
+        let newItem = IncomeItem(name: newIncomeName, amount: amount)
+        incomeItems.append(newItem)
+        updateTotalIncome()
+        
+        // Reset the form
+        newIncomeName = ""
+        newIncomeAmount = ""
+        showingAddIncome = false
+    }
+    
+    private func cancelAddIncome() {
+        newIncomeName = ""
+        newIncomeAmount = ""
+        showingAddIncome = false
     }
     
 
@@ -713,12 +771,7 @@ struct IncomeItemRow: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 20)
-        .onAppear {
-            if item.name.isEmpty && !isEditingName {
-                nameText = item.name
-                isEditingName = true
-            }
-        }
+
     }
     
     private func formatCurrency(_ amount: Double) -> String {
