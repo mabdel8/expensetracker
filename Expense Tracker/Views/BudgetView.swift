@@ -231,7 +231,7 @@ struct BudgetView: View {
                         Text("+\(formatCurrency(transaction.amount))")
                             .font(.body)
                             .fontWeight(.semibold)
-                            .foregroundColor(.green)
+                            .foregroundColor(.primary)
                     }
                     .padding(.vertical, 12)
                     .padding(.horizontal, 20)
@@ -274,6 +274,7 @@ struct BudgetView: View {
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity)
                     .padding(40)
                 }
             }
@@ -559,15 +560,6 @@ struct CategoryGroupView: View {
             // Display expense transactions from the blue plus button
             ForEach(expenseTransactionsForGroup, id: \.id) { transaction in
                 HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.red.opacity(0.1))
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "minus")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.red)
-                    }
-                    
                     VStack(alignment: .leading, spacing: 2) {
                         Text(transaction.name)
                             .font(.body)
@@ -582,7 +574,7 @@ struct CategoryGroupView: View {
                     Text("-\(formatCurrency(transaction.amount))")
                         .font(.body)
                         .fontWeight(.semibold)
-                        .foregroundColor(.red)
+                        .foregroundColor(.primary)
                 }
                 .padding(.vertical, 4)
             }
@@ -861,7 +853,7 @@ struct IncomeItemRow: View {
                 Text(formatCurrency(item.amount))
                     .font(.body)
                     .fontWeight(.semibold)
-                    .foregroundColor(.green)
+                    .foregroundColor(.primary)
                     .onTapGesture {
                         amountText = item.amount > 0 ? String(format: "%.0f", item.amount) : ""
                         isEditingAmount = true
