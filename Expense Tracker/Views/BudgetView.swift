@@ -76,9 +76,6 @@ struct BudgetView: View {
                     // Budget Chart Section
                     budgetChartSection
                     
-                    // Budget Summary
-                    budgetSummarySection
-                    
                     // Spending Categories
                     spendingCategoriesSection
                     
@@ -122,6 +119,27 @@ struct BudgetView: View {
     
     private var budgetChartSection: some View {
         VStack(spacing: 16) {
+            // Edit Budget Button
+            HStack {
+                Text(monthYearString)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+                
+                Button(action: {
+                    showingEditBudget = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                        Text("Edit Budget")
+                            .font(.body)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
+                }
+            }
+            
             if totalBudget > 0 {
                 BudgetChartView(totalBudget: totalBudget, spentAmount: totalSpent)
             } else {
@@ -150,94 +168,6 @@ struct BudgetView: View {
         .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         .padding(.horizontal)
         .padding(.bottom, 16)
-    }
-    
-    private var budgetSummarySection: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text(monthYearString)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Spacer()
-                
-                Button(action: {
-                    showingEditBudget = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 12))
-                        Text("Edit Budget")
-                            .font(.body)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(Color(hex: "023047") ?? .blue)
-                }
-            }
-            
-            if totalBudget > 0 {
-                // Budget overview
-                VStack(spacing: 16) {
-                    Text(formatCurrency(totalBudget))
-                        .font(.system(size: 36, weight: .bold))
-                        .foregroundColor(.primary)
-                    
-                    Text("Total Budget")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                // Spent vs Remaining breakdown
-                HStack(spacing: 24) {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(Color.orange)
-                                .frame(width: 12, height: 12)
-                            Text("Spent")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Text(formatCurrency(totalSpent))
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
-                    }
-                    
-                    VStack(spacing: 8) {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(Color(hex: "023047") ?? .blue)
-                                .frame(width: 12, height: 12)
-                            Text("Remaining")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Text(formatCurrency(remainingBudget))
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(remainingBudget < 0 ? .red : Color(hex: "023047") ?? .blue)
-                    }
-                }
-            } else {
-                VStack(spacing: 16) {
-                    Text("Set Your Budget")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
-                    
-                    Text("Create a monthly budget to track your spending and stay on target")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-            }
-        }
-        .padding(24)
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
-        .padding(.horizontal)
-        .padding(.bottom, 24)
     }
     
     private var spendingCategoriesSection: some View {

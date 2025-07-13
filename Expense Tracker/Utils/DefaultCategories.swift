@@ -8,6 +8,11 @@
 import Foundation
 import SwiftData
 
+struct SubcategoryData {
+    let name: String
+    let parentCategory: String
+}
+
 struct DefaultCategories {
     
     static let expenseCategories = [
@@ -20,6 +25,18 @@ struct DefaultCategories {
         CategoryData(name: "Transportation", iconName: "car.fill", colorHex: "4ECDC4", transactionType: .expense),
         CategoryData(name: "Education", iconName: "book.fill", colorHex: "85C1E9", transactionType: .expense),
         CategoryData(name: "Travel", iconName: "airplane", colorHex: "82E0AA", transactionType: .expense)
+    ]
+    
+    static let defaultSubcategories: [String: [String]] = [
+        "Bills & Utilities": ["Rent/Mortgage", "Electricity", "Water", "Gas", "Internet", "Phone", "Insurance", "Trash"],
+        "Food & Dining": ["Groceries", "Restaurants", "Coffee/Tea", "Takeout", "Snacks"],
+        "Healthcare": ["Doctor visits", "Medications", "Dental", "Vision", "Health Insurance"],
+        "Personal Care": ["Haircuts", "Skincare", "Gym", "Clothing", "Cosmetics"],
+        "Shopping": ["Clothes", "Electronics", "Home goods", "Gifts", "Books"],
+        "Entertainment": ["Movies", "Concerts", "Games", "Streaming", "Sports"],
+        "Transportation": ["Gas", "Public transit", "Parking", "Car maintenance", "Uber/Lyft"],
+        "Education": ["Tuition", "Books", "Courses", "Supplies", "Certifications"],
+        "Travel": ["Flights", "Hotels", "Food", "Activities", "Transportation"]
     ]
     
     static let incomeCategories = [
