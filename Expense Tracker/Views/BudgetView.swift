@@ -14,12 +14,12 @@ struct BudgetView: View {
     @Query private var budgets: [Budget]
     @Query private var allCategories: [Category]
     @Query private var transactions: [Transaction]
+    @Query private var plannedIncomes: [PlannedIncome]
+    @Query private var plannedExpenses: [PlannedExpense]
     
     @State private var selectedMonth = Date()
     @State private var totalIncome: Double = 0
     @State private var budgetAmounts: [String: Double] = [:]
-    @State private var incomeItems: [IncomeItem] = []
-    @State private var customBudgetItems: [String: [BudgetItem]] = [:]
     @State private var showingAddItemForGroup: String? = nil
     @State private var newItemName: String = ""
     @State private var newItemAmount: String = ""
@@ -62,14 +62,28 @@ struct BudgetView: View {
         currentMonthTransactions.filter { $0.type == .income }
     }
     
+    private var currentMonthPlannedIncomes: [PlannedIncome] {
+        let calendar = Calendar.current
+        return plannedIncomes.filter { plannedIncome in
+            calendar.isDate(plannedIncome.month, equalTo: selectedMonth, toGranularity: .month)
+        }
+    }
+    
+    private var currentMonthPlannedExpenses: [PlannedExpense] {
+        let calendar = Calendar.current
+        return plannedExpenses.filter { plannedExpense in
+            calendar.isDate(plannedExpense.month, equalTo: selectedMonth, toGranularity: .month)
+        }
+    }
+    
     private var totalSpent: Double {
         currentMonthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
     
     private var totalBudgeted: Double {
         let categoryBudgets = budgetAmounts.values.reduce(0, +)
-        let customBudgets = customBudgetItems.values.flatMap { $0 }.reduce(0) { $0 + $1.amount }
-        return categoryBudgets + customBudgets
+        let plannedBudgets = currentMonthPlannedExpenses.reduce(0) { $0 + $1.amount }
+        return categoryBudgets + plannedBudgets
     }
     
     private var remainingToBudget: Double {
@@ -78,9 +92,7 @@ struct BudgetView: View {
     
     private var canAddIncomeItem: Bool {
         // Allow adding income when not currently showing the add form
-        !showingAddIncome && (incomeItems.isEmpty || incomeItems.allSatisfy { 
-            !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.amount > 0 
-        })
+        !showingAddIncome
     }
     
     var body: some View {
@@ -110,8 +122,6 @@ struct BudgetView: View {
         .onChange(of: transactions) { _, _ in
             // Recalculate total income when transactions change
             updateTotalIncome()
-            
-            // Note: totalBudgeted is a computed property that will automatically update
         }
     }
     
@@ -234,7 +244,7 @@ struct BudgetView: View {
                 }
             }
             
-            // Display income from transactions (blue plus button)
+                        // Display income from transactions (blue plus button)
             ForEach(currentMonthIncomeTransactions, id: \.id) { transaction in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -257,20 +267,22 @@ struct BudgetView: View {
             }
             
             // Display manual income items (budget planning)
-            ForEach(incomeItems.indices, id: \.self) { index in
-                IncomeItemRow(
-                    item: incomeItems[index],
+            ForEach(currentMonthPlannedIncomes, id: \.id) { plannedIncome in
+                PlannedIncomeRow(
+                    plannedIncome: plannedIncome,
                     onNameChange: { newName in
-                        incomeItems[index].name = newName
+                        plannedIncome.name = newName
+                        saveContext()
                     },
                     onAmountChange: { newAmount in
-                        incomeItems[index].amount = newAmount
+                        plannedIncome.amount = newAmount
+                        saveContext()
                         updateTotalIncome()
                     }
                 )
             }
             .onDelete(perform: deleteIncomeItem)
-            
+
             // Add Income button or inline input
             if showingAddIncome {
                 // Inline input row when adding income
@@ -358,7 +370,7 @@ struct BudgetView: View {
                     category: category,
                     budgetAmounts: $budgetAmounts,
                     currentTransactions: currentMonthTransactions,
-                    customBudgetItems: customBudgetItems[category.name] ?? [],
+                    plannedExpenses: currentMonthPlannedExpenses.filter { $0.category?.name == category.name },
                     showingAddItemForCategory: $showingAddItemForGroup,
                     newItemName: $newItemName,
                     newItemAmount: $newItemAmount,
@@ -402,19 +414,15 @@ struct BudgetView: View {
             }
         }
         
-        // Load default budget items if customBudgetItems is empty
-        if customBudgetItems.isEmpty {
-            loadDefaultBudgetItems()
-        }
-        
-        // Calculate total income from both manual items and transactions
+        // Calculate total income from both planned and transaction items
         updateTotalIncome()
     }
     
-    private func loadDefaultBudgetItems() {
-        // Initialize custom budget items for each category
-        for category in expenseCategories {
-            customBudgetItems[category.name] = []
+    private func saveContext() {
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save context: \(error)")
         }
     }
     
@@ -422,28 +430,49 @@ struct BudgetView: View {
     
 
     
-    private func updateTotalIncome() {
-        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
+        private func updateTotalIncome() {
+        let plannedIncomeTotal = currentMonthPlannedIncomes.reduce(0) { $0 + $1.amount }
         let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
-        totalIncome = manualIncomeTotal + transactionIncomeTotal
+        totalIncome = plannedIncomeTotal + transactionIncomeTotal
     }
     
     private func deleteIncomeItem(at offsets: IndexSet) {
-        incomeItems.remove(atOffsets: offsets)
+        for index in offsets {
+            let plannedIncome = currentMonthPlannedIncomes[index]
+            modelContext.delete(plannedIncome)
+        }
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to delete planned income: \(error)")
+        }
+        
         updateTotalIncome()
     }
-    
+
     private func saveIncomeItem() {
         guard let amount = Double(newIncomeAmount), amount > 0 else { return }
         
-        let newItem = IncomeItem(name: newIncomeName, amount: amount)
-        incomeItems.append(newItem)
-        updateTotalIncome()
+        let plannedIncome = PlannedIncome(
+            name: newIncomeName,
+            amount: amount,
+            month: selectedMonth
+        )
+        modelContext.insert(plannedIncome)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save planned income: \(error)")
+        }
         
         // Reset the form
         newIncomeName = ""
         newIncomeAmount = ""
         showingAddIncome = false
+        
+        updateTotalIncome()
     }
     
     private func cancelAddIncome() {
@@ -457,14 +486,19 @@ struct BudgetView: View {
     private func saveItemForCategory(_ category: Category) {
         guard let amount = Double(newItemAmount), amount > 0 else { return }
         
-        // Create a new budget item
-        let budgetItem = BudgetItem(name: newItemName, amount: amount)
+        let plannedExpense = PlannedExpense(
+            name: newItemName,
+            amount: amount,
+            month: selectedMonth,
+            category: category
+        )
+        modelContext.insert(plannedExpense)
         
-        // Add to custom budget items for this category
-        if customBudgetItems[category.name] == nil {
-            customBudgetItems[category.name] = []
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to save planned expense: \(error)")
         }
-        customBudgetItems[category.name]?.append(budgetItem)
         
         // Reset the form
         newItemName = ""
@@ -472,21 +506,14 @@ struct BudgetView: View {
         showingAddItemForGroup = nil
     }
     
-    private func cancelAddItemForGroup() {
+        private func cancelAddItemForGroup() {
         newItemName = ""
         newItemAmount = ""
         showingAddItemForGroup = nil
     }
     
-    private func updateCustomItemAmount(category: Category, itemId: UUID, newAmount: Double) {
-        if var items = customBudgetItems[category.name] {
-            if let index = items.firstIndex(where: { $0.id == itemId }) {
-                items[index].amount = newAmount
-                customBudgetItems[category.name] = items
-            }
-        }
-    }
-    
+
+
     private func formatCurrency(_ amount: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -507,7 +534,7 @@ struct CategorySectionView: View {
     let category: Category
     @Binding var budgetAmounts: [String: Double]
     let currentTransactions: [Transaction]
-    let customBudgetItems: [BudgetItem]
+    let plannedExpenses: [PlannedExpense]
     @Binding var showingAddItemForCategory: String?
     @Binding var newItemName: String
     @Binding var newItemAmount: String
@@ -524,8 +551,8 @@ struct CategorySectionView: View {
     private var categoryTotal: Double {
         let budgetAmount = budgetAmounts[category.name] ?? 0
         let transactionAmount = categoryTransactions.reduce(0) { $0 + $1.amount }
-        let customBudgetAmount = customBudgetItems.reduce(0) { $0 + $1.amount }
-        return budgetAmount + transactionAmount + customBudgetAmount
+        let plannedAmount = plannedExpenses.reduce(0) { $0 + $1.amount }
+        return budgetAmount + transactionAmount + plannedAmount
     }
     
     var body: some View {
@@ -557,7 +584,7 @@ struct CategorySectionView: View {
                 }
             )
             
-            // Display expense transactions from the blue plus button
+            // Display expense transactions (actual spending)
             ForEach(categoryTransactions, id: \.id) { transaction in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -579,21 +606,21 @@ struct CategorySectionView: View {
                 .padding(.vertical, 4)
             }
             
-            // Display custom budget items (manually added items)
-            ForEach(customBudgetItems, id: \.id) { budgetItem in
+            // Display planned expenses (planned spending)
+            ForEach(plannedExpenses, id: \.id) { plannedExpense in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(budgetItem.name)
+                        Text(plannedExpense.name)
                             .font(.body)
                             .fontWeight(.medium)
-                        Text("Budget Item")
+                        Text("Planned")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     
                     Spacer()
                     
-                    Text("-\(formatCurrency(budgetItem.amount))")
+                    Text("-\(formatCurrency(plannedExpense.amount))")
                         .font(.body)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
@@ -719,14 +746,16 @@ struct BudgetCategoryRow: View {
 
 
 
-struct IncomeItem: Identifiable {
-    let id = UUID()
-    var name: String
-    var amount: Double
-}
 
-struct IncomeItemRow: View {
-    let item: IncomeItem
+
+
+
+
+
+
+
+struct PlannedIncomeRow: View {
+    let plannedIncome: PlannedIncome
     let onNameChange: (String) -> Void
     let onAmountChange: (Double) -> Void
     
@@ -747,15 +776,15 @@ struct IncomeItemRow: View {
                     }
             } else {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name.isEmpty ? "Name" : item.name)
+                    Text(plannedIncome.name.isEmpty ? "Name" : plannedIncome.name)
                         .font(.body)
                         .fontWeight(.medium)
-                        .foregroundColor(item.name.isEmpty ? .secondary : .primary)
+                        .foregroundColor(plannedIncome.name.isEmpty ? .secondary : .primary)
                         .onTapGesture {
-                            nameText = item.name
+                            nameText = plannedIncome.name
                             isEditingName = true
                         }
-                    Text("Budget Income")
+                    Text("Planned Income")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -792,19 +821,24 @@ struct IncomeItemRow: View {
                         }
                     }
             } else {
-                Text("+\(formatCurrency(item.amount))")
+                Text("+\(formatCurrency(plannedIncome.amount))")
                     .font(.body)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                     .onTapGesture {
-                        amountText = item.amount > 0 ? String(format: "%.0f", item.amount) : ""
+                        amountText = plannedIncome.amount > 0 ? String(format: "%.0f", plannedIncome.amount) : ""
                         isEditingAmount = true
                         isAmountFocused = true
                     }
             }
         }
         .padding(.vertical, 4)
-
+        .onAppear {
+            if plannedIncome.name.isEmpty && !isEditingName {
+                nameText = plannedIncome.name
+                isEditingName = true
+            }
+        }
     }
     
     private func formatCurrency(_ amount: Double) -> String {
@@ -815,25 +849,7 @@ struct IncomeItemRow: View {
     }
 }
 
-struct BudgetItem: Identifiable {
-    let id: UUID
-    let name: String
-    var amount: Double
-    
-    init(name: String, amount: Double) {
-        self.id = UUID()
-        self.name = name
-        self.amount = amount
-    }
-}
-
-
-
-
-
-
-
 #Preview {
     BudgetView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, Budget.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
 } 
