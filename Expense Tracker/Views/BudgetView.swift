@@ -27,6 +27,7 @@ struct BudgetView: View {
     @State private var newIncomeName: String = ""
     @State private var newIncomeAmount: String = ""
     @FocusState private var isIncomeAmountFocused: Bool
+    @FocusState private var isIncomeNameFocused: Bool
 
     
     private var expenseCategories: [Category] {
@@ -277,6 +278,7 @@ struct BudgetView: View {
                     TextField("Income Name", text: $newIncomeName)
                         .textFieldStyle(PlainTextFieldStyle())
                         .submitLabel(.done)
+                        .focused($isIncomeNameFocused)
                     
                     Spacer()
                     
@@ -313,7 +315,7 @@ struct BudgetView: View {
                     Button(action: {
                         showingAddIncome = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isIncomeAmountFocused = true
+                            isIncomeNameFocused = true
                         }
                     }) {
                         HStack {
@@ -356,6 +358,7 @@ struct BudgetView: View {
                     category: category,
                     budgetAmounts: $budgetAmounts,
                     currentTransactions: currentMonthTransactions,
+                    customBudgetItems: customBudgetItems[category.name] ?? [],
                     showingAddItemForCategory: $showingAddItemForGroup,
                     newItemName: $newItemName,
                     newItemAmount: $newItemAmount,
@@ -504,6 +507,7 @@ struct CategorySectionView: View {
     let category: Category
     @Binding var budgetAmounts: [String: Double]
     let currentTransactions: [Transaction]
+    let customBudgetItems: [BudgetItem]
     @Binding var showingAddItemForCategory: String?
     @Binding var newItemName: String
     @Binding var newItemAmount: String
@@ -511,6 +515,7 @@ struct CategorySectionView: View {
     let onCancelItem: () -> Void
     
     @FocusState private var isAmountFocused: Bool
+    @FocusState private var isNameFocused: Bool
     
     private var categoryTransactions: [Transaction] {
         currentTransactions.filter { $0.category?.name == category.name && $0.type == .expense }
@@ -519,7 +524,8 @@ struct CategorySectionView: View {
     private var categoryTotal: Double {
         let budgetAmount = budgetAmounts[category.name] ?? 0
         let transactionAmount = categoryTransactions.reduce(0) { $0 + $1.amount }
-        return budgetAmount + transactionAmount
+        let customBudgetAmount = customBudgetItems.reduce(0) { $0 + $1.amount }
+        return budgetAmount + transactionAmount + customBudgetAmount
     }
     
     var body: some View {
@@ -573,6 +579,28 @@ struct CategorySectionView: View {
                 .padding(.vertical, 4)
             }
             
+            // Display custom budget items (manually added items)
+            ForEach(customBudgetItems, id: \.id) { budgetItem in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(budgetItem.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Text("Budget Item")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text("-\(formatCurrency(budgetItem.amount))")
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                .padding(.vertical, 4)
+            }
+            
             // Add Item button row or inline input row
             if showingAddItemForCategory == category.name {
                 // Inline input row when adding item (replaces the Add Item button)
@@ -580,6 +608,7 @@ struct CategorySectionView: View {
                     TextField("Item Name", text: $newItemName)
                         .textFieldStyle(PlainTextFieldStyle())
                         .submitLabel(.done)
+                        .focused($isNameFocused)
                         .onSubmit {
                             // Move focus away from the text field when done is pressed
                         }
@@ -619,7 +648,7 @@ struct CategorySectionView: View {
                     Button(action: { 
                         showingAddItemForCategory = category.name
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isAmountFocused = true
+                            isNameFocused = true
                         }
                     }) {
                         HStack {
@@ -708,7 +737,7 @@ struct IncomeItemRow: View {
     @FocusState private var isAmountFocused: Bool
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             if isEditingName {
                 TextField("Name", text: $nameText)
                     .submitLabel(.done)
@@ -717,14 +746,19 @@ struct IncomeItemRow: View {
                         isEditingName = false
                     }
             } else {
-                Text(item.name.isEmpty ? "Name" : item.name)
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundColor(item.name.isEmpty ? .secondary : .primary)
-                    .onTapGesture {
-                        nameText = item.name
-                        isEditingName = true
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name.isEmpty ? "Name" : item.name)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(item.name.isEmpty ? .secondary : .primary)
+                        .onTapGesture {
+                            nameText = item.name
+                            isEditingName = true
+                        }
+                    Text("Budget Income")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             Spacer()
@@ -758,7 +792,7 @@ struct IncomeItemRow: View {
                         }
                     }
             } else {
-                Text(formatCurrency(item.amount))
+                Text("+\(formatCurrency(item.amount))")
                     .font(.body)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
@@ -769,8 +803,7 @@ struct IncomeItemRow: View {
                     }
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
+        .padding(.vertical, 4)
 
     }
     
