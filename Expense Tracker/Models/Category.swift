@@ -21,6 +21,10 @@ class Category {
     @Relationship(deleteRule: .cascade)
     var transactions: [Transaction]? = []
     
+    // Relationship: A category can have many recurring subscriptions
+    @Relationship(deleteRule: .cascade)
+    var recurringSubscriptions: [RecurringSubscription]? = []
+    
     init(name: String, iconName: String, colorHex: String, transactionType: TransactionType) {
         self.name = name
         self.iconName = iconName

@@ -851,5 +851,5 @@ struct PlannedIncomeRow: View {
 
 #Preview {
     BudgetView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
 } 

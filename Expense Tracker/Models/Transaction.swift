@@ -20,13 +20,18 @@ class Transaction {
     @Relationship(inverse: \Category.transactions)
     var category: Category?
     
-    init(name: String, date: Date, amount: Double, notes: String? = nil, type: TransactionType, category: Category? = nil) {
+    // Relationship: A transaction can be associated with a recurring subscription
+    @Relationship(inverse: \RecurringSubscription.transactions)
+    var recurringSubscription: RecurringSubscription?
+    
+    init(name: String, date: Date, amount: Double, notes: String? = nil, type: TransactionType, category: Category? = nil, recurringSubscription: RecurringSubscription? = nil) {
         self.name = name
         self.date = date
         self.amount = amount
         self.notes = notes
         self.type = type
         self.category = category
+        self.recurringSubscription = recurringSubscription
     }
     
     // Computed properties for convenience
@@ -43,6 +48,10 @@ class Transaction {
     
     var isExpense: Bool {
         return type == .expense
+    }
+    
+    var isRecurring: Bool {
+        return recurringSubscription != nil
     }
     
     var displayAmount: String {
