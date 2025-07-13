@@ -39,6 +39,10 @@ struct SettingsView: View {
                 }
                 
                 Section("Data") {
+                    NavigationLink(destination: AllTransactionsView()) {
+                        Label("Transaction History", systemImage: "list.bullet.rectangle")
+                    }
+                    
                     Button(action: {
                         // TODO: Implement data export
                     }) {
