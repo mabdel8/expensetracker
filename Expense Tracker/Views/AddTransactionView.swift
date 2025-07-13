@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext

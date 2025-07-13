@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
 
 struct BudgetView: View {
     @Environment(\.modelContext) private var modelContext
@@ -22,6 +23,7 @@ struct BudgetView: View {
     @State private var showingAddItemForGroup: CategoryGroup? = nil
     @State private var newItemName: String = ""
     @State private var newItemAmount: String = ""
+
     
     private var expenseCategories: [Category] {
         allCategories.filter { $0.transactionType == .expense }
@@ -53,6 +55,13 @@ struct BudgetView: View {
         totalIncome - totalBudgeted
     }
     
+    private var canAddIncomeItem: Bool {
+        // Allow adding the first item, or if all existing items are properly filled out
+        incomeItems.isEmpty || incomeItems.allSatisfy { 
+            !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.amount > 0 
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -72,135 +81,208 @@ struct BudgetView: View {
                     Spacer(minLength: 100)
                 }
             }
-            .navigationTitle("Budget")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
         }
         .onAppear {
             loadBudgetData()
         }
         .onChange(of: transactions) { _, _ in
             // Recalculate total income when transactions change
-            let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
-            let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
-            totalIncome = manualIncomeTotal + transactionIncomeTotal
+            updateTotalIncome()
             
             // Note: totalBudgeted is a computed property that will automatically update
         }
     }
     
+
+    
     private var monthNavigationSection: some View {
-        HStack {
-            Button(action: { changeMonth(-1) }) {
+        HStack(spacing: 16) {
+            Button(action: {
+                changeMonth(-1)
+            }) {
                 Image(systemName: "chevron.left")
-                    .foregroundColor(.primary)
+                    .font(.body)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
             }
-            
-            Spacer()
             
             Text(monthYearString)
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
-            Spacer()
-            
-            Button(action: { changeMonth(1) }) {
+            Button(action: {
+                changeMonth(1)
+            }) {
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.primary)
+                    .font(.body)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 50)
+        .padding(.bottom, 20)
     }
     
     private var budgetSummarySection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             HStack {
-                Text("Budget Summary")
-                    .font(.headline)
+                Text(monthYearString)
+                    .font(.title2)
                     .fontWeight(.bold)
                 Spacer()
             }
             
-            HStack {
-                Text("Remaining to Budget")
-                    .font(.body)
-                Spacer()
-                Text(formatCurrency(remainingToBudget))
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(remainingToBudget >= 0 ? .green : .red)
+            // Main budget overview
+            VStack(spacing: 16) {
+                Text(formatCurrency(totalIncome))
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(.primary)
+                
+                Text("Total Income")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Income vs Spent breakdown
+            HStack(spacing: 24) {
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 12, height: 12)
+                        Text("Spent")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Text(formatCurrency(totalSpent))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                }
+                
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.teal)
+                            .frame(width: 12, height: 12)
+                        Text("Remaining")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Text(formatCurrency(remainingToBudget))
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.teal)
+                }
             }
         }
-        .padding()
+        .padding(24)
         .background(Color.white)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         .padding(.horizontal)
-        .padding(.bottom, 8)
+        .padding(.bottom, 24)
     }
     
     private var incomeSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "banknote")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.green)
                     Text("Income")
-                        .font(.headline)
+                        .font(.title3)
                         .fontWeight(.bold)
-                    Spacer()
-                    Text("Planned")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
                 }
-                
-                                                 // Display income transactions from the blue plus button
+                Spacer()
+                Button(action: {
+                    addIncomeItem()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Add Income")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(canAddIncomeItem ? Color.green : Color.gray)
+                    .cornerRadius(20)
+                }
+                .disabled(!canAddIncomeItem)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 16)
+            
+            VStack(spacing: 0) {
+                // Display income from transactions (blue plus button)
                 ForEach(currentMonthIncomeTransactions, id: \.id) { transaction in
-                    HStack {
+                    HStack(spacing: 16) {
                         Text(transaction.name)
                             .font(.body)
-                        Spacer()
-                        Text(formatCurrency(transaction.amount))
-                            .font(.body)
                             .fontWeight(.medium)
+                        
+                        Spacer()
+                        
+                        Text("+\(formatCurrency(transaction.amount))")
+                            .font(.body)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.green)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 20)
+                    
+                    if transaction.id != currentMonthIncomeTransactions.last?.id || !incomeItems.isEmpty {
+                        Divider()
+                            .padding(.leading, 20)
                     }
                 }
                 
-                // Display manual income items
-                ForEach(incomeItems, id: \.id) { item in
-                    HStack {
-                        Text(item.name)
-                            .font(.body)
-                        Spacer()
-                        Text(formatCurrency(item.amount))
-                            .font(.body)
-                            .fontWeight(.medium)
+                // Display manual income items (budget planning)
+                ForEach(incomeItems.indices, id: \.self) { index in
+                    IncomeItemRow(
+                        item: incomeItems[index],
+                        onNameChange: { newName in
+                            incomeItems[index].name = newName
+                        },
+                        onAmountChange: { newAmount in
+                            incomeItems[index].amount = newAmount
+                            updateTotalIncome()
+                        }
+                    )
+                    
+                    if index != incomeItems.count - 1 {
+                        Divider()
+                            .padding(.leading, 20)
                     }
                 }
                 .onDelete(perform: deleteIncomeItem)
-                 
-                                 if !incomeItems.isEmpty || !currentMonthIncomeTransactions.isEmpty {
-                    Divider()
-                    
-                    HStack {
-                        Text("Total Income")
-                            .font(.body)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Text(formatCurrency(totalIncome))
-                            .font(.body)
-                            .fontWeight(.bold)
-                    }
-                }
                 
-
+                // Empty state when no income
+                if incomeItems.isEmpty && currentMonthIncomeTransactions.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("No Income Added")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Tap 'Add Income' to start planning your budget")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(40)
+                }
             }
-            .padding()
             .background(Color.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .cornerRadius(16)
+            .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+            .padding(.horizontal)
+            .padding(.bottom, 24)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 24)
     }
     
     private var spendingCategoriesSection: some View {
@@ -301,9 +383,7 @@ struct BudgetView: View {
         }
         
         // Calculate total income from both manual items and transactions
-        let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
-        let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
-        totalIncome = manualIncomeTotal + transactionIncomeTotal
+        updateTotalIncome()
     }
     
     private func loadDefaultBudgetItems() {
@@ -357,13 +437,21 @@ struct BudgetView: View {
     
 
     
-    private func deleteIncomeItem(at offsets: IndexSet) {
-        incomeItems.remove(atOffsets: offsets)
-        
-        // Update total income (includes both manual items and transactions)
+    private func addIncomeItem() {
+        let newItem = IncomeItem(name: "", amount: 0)
+        incomeItems.append(newItem)
+        updateTotalIncome()
+    }
+    
+    private func updateTotalIncome() {
         let manualIncomeTotal = incomeItems.reduce(0) { $0 + $1.amount }
         let transactionIncomeTotal = currentMonthIncomeTransactions.reduce(0) { $0 + $1.amount }
         totalIncome = manualIncomeTotal + transactionIncomeTotal
+    }
+    
+    private func deleteIncomeItem(at offsets: IndexSet) {
+        incomeItems.remove(atOffsets: offsets)
+        updateTotalIncome()
     }
     
 
@@ -407,6 +495,12 @@ struct BudgetView: View {
         formatter.locale = Locale.current
         return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
 }
 
 
@@ -437,15 +531,18 @@ struct CategoryGroupView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text(group.title)
-                    .font(.headline)
+                    .font(.title3)
                     .fontWeight(.bold)
                 Spacer()
-                Text("Planned")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                if groupTotal > 0 {
+                    Text(formatCurrency(groupTotal))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
             }
             
             ForEach(categories.filter { $0.name != group.rawValue }, id: \.name) { category in
@@ -461,16 +558,33 @@ struct CategoryGroupView: View {
             
             // Display expense transactions from the blue plus button
             ForEach(expenseTransactionsForGroup, id: \.id) { transaction in
-                HStack {
-                    Text(transaction.name)
-                        .font(.body)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.red.opacity(0.1))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "minus")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.red)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(transaction.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+                        Text(transaction.category?.name ?? "")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     
                     Spacer()
                     
-                    Text(formatCurrency(transaction.amount))
+                    Text("-\(formatCurrency(transaction.amount))")
                         .font(.body)
-                        .fontWeight(.medium)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
                 }
+                .padding(.vertical, 4)
             }
             
             // Display custom budget items
@@ -480,20 +594,7 @@ struct CategoryGroupView: View {
                 }
             }
             
-            // Show total for this group if there are budgeted items
-            if groupTotal > 0 {
-                Divider()
-                
-                HStack {
-                    Text("Total \(group.title)")
-                        .font(.body)
-                        .fontWeight(.bold)
-                    Spacer()
-                    Text(formatCurrency(groupTotal))
-                        .font(.body)
-                        .fontWeight(.bold)
-                }
-            }
+
             
             // Add Item button row or inline input row
             if showingAddItemForGroup == group {
@@ -549,12 +650,12 @@ struct CategoryGroupView: View {
                 }
             }
         }
-                    .padding()
+                    .padding(20)
             .background(Color.white)
-            .cornerRadius(12)
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+            .cornerRadius(16)
+                        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
             .padding(.horizontal)
-            .padding(.bottom, 8)
+            .padding(.bottom, 16)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     if isAmountFocused {
@@ -695,6 +796,97 @@ struct IncomeItem: Identifiable {
     var amount: Double
 }
 
+struct IncomeItemRow: View {
+    let item: IncomeItem
+    let onNameChange: (String) -> Void
+    let onAmountChange: (Double) -> Void
+    
+    @State private var nameText: String = ""
+    @State private var amountText: String = ""
+    @State private var isEditingName: Bool = false
+    @State private var isEditingAmount: Bool = false
+    @FocusState private var isAmountFocused: Bool
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            if isEditingName {
+                TextField("Name", text: $nameText)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        onNameChange(nameText)
+                        isEditingName = false
+                    }
+            } else {
+                Text(item.name.isEmpty ? "Name" : item.name)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(item.name.isEmpty ? .secondary : .primary)
+                    .onTapGesture {
+                        nameText = item.name
+                        isEditingName = true
+                    }
+            }
+            
+            Spacer()
+            
+            if isEditingAmount {
+                TextField("0", text: $amountText)
+                    .keyboardType(.decimalPad)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(width: 100)
+                    .multilineTextAlignment(.trailing)
+                    .focused($isAmountFocused)
+                    .onSubmit {
+                        if let amount = Double(amountText) {
+                            onAmountChange(amount)
+                        }
+                        isEditingAmount = false
+                    }
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            if isAmountFocused {
+                                Spacer()
+                                Button("Done") {
+                                    if let amount = Double(amountText) {
+                                        onAmountChange(amount)
+                                    }
+                                    isEditingAmount = false
+                                    isAmountFocused = false
+                                }
+                                .foregroundColor(.blue)
+                            }
+                        }
+                    }
+            } else {
+                Text(formatCurrency(item.amount))
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.green)
+                    .onTapGesture {
+                        amountText = item.amount > 0 ? String(format: "%.0f", item.amount) : ""
+                        isEditingAmount = true
+                        isAmountFocused = true
+                    }
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .onAppear {
+            if item.name.isEmpty && !isEditingName {
+                nameText = item.name
+                isEditingName = true
+            }
+        }
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+    }
+}
+
 struct BudgetItem: Identifiable {
     let id: UUID
     let name: String
@@ -723,6 +915,8 @@ enum CategoryGroup: String, CaseIterable {
         return self.rawValue
     }
 }
+
+
 
 #Preview {
     BudgetView()
