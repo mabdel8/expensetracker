@@ -10,11 +10,13 @@ import SwiftData
 import SwiftUI
 
 @Model
+
 class Category {
     var name: String = ""
     var iconName: String = "questionmark.circle" // SF Symbol name
     var colorHex: String = "0000FF" // Store color as a hex string
     var transactionType: TransactionType = TransactionType.expense
+
     
     // Relationship: A category can have many transactions (must be optional for CloudKit)
     @Relationship(deleteRule: .cascade, inverse: \Transaction.category)
@@ -39,6 +41,16 @@ class Category {
         self.iconName = iconName
         self.colorHex = colorHex
         self.transactionType = transactionType
+    }
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(transactionType)
+    }
+    
+    static func == (lhs: Category, rhs: Category) -> Bool {
+        return lhs.name == rhs.name && lhs.transactionType == rhs.transactionType
     }
     
     // Computed property to get Color from hex string

@@ -10,7 +10,6 @@ import SwiftData
 
 struct RecurringSubscriptionsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     @Query private var recurringSubscriptions: [RecurringSubscription]
     
@@ -30,14 +29,7 @@ struct RecurringSubscriptionsView: View {
                 }
             }
             .navigationTitle("Recurring Subscriptions")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
     

@@ -9,9 +9,11 @@ import Foundation
 import SwiftData
 
 @Model
-class MonthlyBudget {
+
+class MonthlyBudget: Hashable {
     var totalBudget: Double = 0.0
     var month: Date = Date() // First day of the month
+
     
     // Relationship: A monthly budget has many category allocations
     @Relationship(deleteRule: .cascade, inverse: \CategoryBudget.monthlyBudget)
@@ -20,6 +22,15 @@ class MonthlyBudget {
     init(totalBudget: Double, month: Date) {
         self.totalBudget = totalBudget
         self.month = month
+    }
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(month)
+    }
+    
+    static func == (lhs: MonthlyBudget, rhs: MonthlyBudget) -> Bool {
+        return lhs.month == rhs.month
     }
     
     // Computed properties for convenience

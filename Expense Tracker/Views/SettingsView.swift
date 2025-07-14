@@ -2,11 +2,12 @@
 //  SettingsView.swift
 //  Expense Tracker
 //
-//  Created by Mohamed Abdelmagid on 7/9/25.
+//  Created by Abdalla Abdelmagid on 7/9/25.
 //
 
 import SwiftUI
 import SwiftData
+import StoreKit
 import CloudKit
 
 struct SettingsView: View {
@@ -31,23 +32,51 @@ struct SettingsView: View {
         categoryManager.categories.filter { $0.transactionType == .income }
     }
     
+
+    
     var body: some View {
         NavigationView {
             Form {
-                Section("Categories") {
+                Section("Management") {
                     NavigationLink(destination: CategoriesManagementView()) {
-                        Label("Manage Categories", systemImage: "folder.fill")
-                        Text("Customize your expense and income categories")
+                        HStack {
+                            Image(systemName: "folder.fill")
+                                .foregroundColor(.orange)
+                                .frame(width: 20)
+                            Text("Manage Categories")
+                        }
                     }
-                }
-                
-                Section("Budgets") {
+                    
                     NavigationLink(destination: BudgetsManagementView()) {
-                        Label("Manage Budgets", systemImage: "chart.bar.fill")
-                        Text("Set and track your spending budgets")
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .foregroundColor(.blue)
+                                .frame(width: 20)
+                            Text("Manage Budgets")
+                        }
+                    }
+                    
+                    NavigationLink(destination: RecurringSubscriptionsView()) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .foregroundColor(.purple)
+                                .frame(width: 20)
+                            Text("Recurring Subscriptions")
+                        }
                     }
                 }
                 
+
+                Section("Data & Reports") {
+                    NavigationLink(destination: AllTransactionsView()) {
+                        HStack {
+                            Image(systemName: "list.bullet.rectangle")
+                                .foregroundColor(.green)
+                                .frame(width: 20)
+                            Text("Transaction History")
+                        }
+                    }
+
                 Section("iCloud Backup") {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -93,29 +122,58 @@ struct SettingsView: View {
                     }) {
                         Label("Export Data", systemImage: "square.and.arrow.up")
                     }
+                    .foregroundColor(.red)
                 }
                 
-                Section("App Info") {
-                    HStack {
-                        Text("Categories")
-                        Spacer()
-                        Text("\(categoryManager.categories.count)")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    HStack {
-                        Text("Budgets")
-                        Spacer()
-                        Text("\(monthlyBudgets.count)")
-                            .foregroundColor(.secondary)
-                    }
-                    
+
+                
+                Section("About") {
                     HStack {
                         Text("Version")
                         Spacer()
                         Text("1.0.0")
                             .foregroundColor(.secondary)
                     }
+                    
+                    Button(action: {
+                        requestAppReview()
+                    }) {
+                        HStack {
+                            Text("Rate the App")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                    }
+                    .foregroundColor(.primary)
+                    
+                    Button(action: {
+                        // TODO: Add privacy policy
+                    }) {
+                        HStack {
+                            Text("Privacy Policy")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    
+                    Button(action: {
+                        // TODO: Add support/feedback
+                    }) {
+                        HStack {
+                            Text("Support & Feedback")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
                 }
                 
                 Section("Development Tools") {
@@ -232,15 +290,119 @@ struct CategoriesManagementView: View {
     
     var body: some View {
         List {
-            Section("Expense Categories") {
-                ForEach(expenseCategories, id: \.name) { category in
-                    CategoryRow(category: category)
+            // Statistics Section
+            if !categories.isEmpty {
+                Section {
+                    VStack(spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Total Categories")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("\(categories.count)")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text("Used in Transactions")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("\(totalUsageCount)")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        
+                        Button(action: {
+                            showingResetAlert = true
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.caption)
+                                Text("Reset to Defaults")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Overview")
                 }
             }
             
-            Section("Income Categories") {
-                ForEach(incomeCategories, id: \.name) { category in
-                    CategoryRow(category: category)
+            // Expense Categories
+            Section {
+                if expenseCategories.isEmpty {
+                    Text("No expense categories")
+                        .foregroundColor(.secondary)
+                        .italic()
+                } else {
+                    ForEach(expenseCategories, id: \.name) { category in
+                        CategoryRow(
+                            category: category,
+                            isSelectionMode: isSelectionMode,
+                            isSelected: selectedCategories.contains(category),
+                            onEdit: {
+                                categoryToEdit = category
+                            },
+                            onToggleSelection: {
+                                toggleSelection(for: category)
+                            }
+                        )
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("Expense Categories (\(expenseCategories.count))")
+                    Spacer()
+                    if !expenseCategories.isEmpty && !isSelectionMode {
+                        Button(action: {
+                            showingAddCategory = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+            }
+            
+            // Income Categories
+            Section {
+                if incomeCategories.isEmpty {
+                    Text("No income categories")
+                        .foregroundColor(.secondary)
+                        .italic()
+                } else {
+                    ForEach(incomeCategories, id: \.name) { category in
+                        CategoryRow(
+                            category: category,
+                            isSelectionMode: isSelectionMode,
+                            isSelected: selectedCategories.contains(category),
+                            onEdit: {
+                                categoryToEdit = category
+                            },
+                            onToggleSelection: {
+                                toggleSelection(for: category)
+                            }
+                        )
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("Income Categories (\(incomeCategories.count))")
+                    Spacer()
+                    if !incomeCategories.isEmpty && !isSelectionMode {
+                        Button(action: {
+                            showingAddCategory = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.blue)
+                        }
+                    }
                 }
             }
         }
@@ -248,10 +410,87 @@ struct CategoriesManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Add") {
-                    // TODO: Add new category
+                if isSelectionMode {
+                    Button("Delete (\(selectedCategories.count))") {
+                        showingDeleteAlert = true
+                    }
+                    .disabled(selectedCategories.isEmpty)
+                    .foregroundColor(selectedCategories.isEmpty ? .gray : .red)
+                } else {
+                    if categories.isEmpty {
+                        Button("Add") {
+                            showingAddCategory = true
+                        }
+                    } else {
+                        Button("Select") {
+                            isSelectionMode = true
+                        }
+                    }
                 }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelectionMode {
+                VStack {
+                    Divider()
+                    HStack {
+                        Button(action: {
+                            isSelectionMode = false
+                            selectedCategories.removeAll()
+                        }) {
+                            Text("Cancel")
+                                .font(.body)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showingDeleteAlert = true
+                        }) {
+                            Text("Delete (\(selectedCategories.count))")
+                                .font(.body)
+                                .foregroundColor(selectedCategories.isEmpty ? .gray : .red)
+                        }
+                        .disabled(selectedCategories.isEmpty)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                .background(Color(.systemBackground))
+            }
+        }
+        .sheet(isPresented: $showingAddCategory) {
+            AddEditCategoryView()
+        }
+        .sheet(item: $categoryToEdit) { category in
+            AddEditCategoryView(categoryToEdit: category)
+        }
+        .alert("Delete Categories", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                if !isSelectionMode {
+                    selectedCategories.removeAll()
+                }
+            }
+            Button("Delete", role: .destructive) {
+                deleteSelectedCategories()
+            }
+        } message: {
+            if selectedCategories.count == 1 {
+                if let category = selectedCategories.first {
+                    Text("Are you sure you want to delete '\(category.name)'? This will also delete all associated transactions and cannot be undone.")
+                }
+            } else {
+                Text("Are you sure you want to delete \(selectedCategories.count) categories? This will also delete all associated transactions and cannot be undone.")
+            }
+        }
+        .alert("Reset Categories", isPresented: $showingResetAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                resetToDefaults()
+            }
+        } message: {
+            Text("This will remove all custom categories and restore the default categories. Transactions using custom categories will be uncategorized and can be reassigned. This action cannot be undone.")
         }
     }
     
@@ -266,20 +505,63 @@ struct CategoriesManagementView: View {
 
 struct CategoryRow: View {
     let category: Category
+    let isSelectionMode: Bool
+    let isSelected: Bool
+    let onEdit: () -> Void
+    let onToggleSelection: () -> Void
+    
+    private var transactionCount: Int {
+        category.transactions?.count ?? 0
+    }
     
     var body: some View {
-        HStack {
-            CategoryIconView(category: category, size: 24)
+        HStack(spacing: 12) {
+            if isSelectionMode {
+                Button(action: onToggleSelection) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .blue : .gray)
+                        .font(.title2)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            CategoryIconView(category: category, size: 28)
             
             Text(category.name)
+                .font(.body)
+                .fontWeight(.medium)
             
             Spacer()
             
-            Text("\(category.transactions?.count ?? 0) transactions")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            if !isSelectionMode {
+                Text("\(transactionCount) transaction\(transactionCount == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, isSelectionMode ? 8 : 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelectionMode {
+                onToggleSelection()
+            } else {
+                onEdit()
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            if !isSelectionMode {
+                Button(role: .destructive) {
+                    // Single delete via swipe
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                
+                Button(action: onEdit) {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
+        }
     }
 }
 
@@ -307,8 +589,10 @@ struct BudgetsManagementView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else {
+
                 ForEach(monthlyBudgets, id: \.totalBudget) { budget in
                     MonthlyBudgetRow(budget: budget)
+
                 }
             }
         }
@@ -316,17 +600,101 @@ struct BudgetsManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Add") {
-                    // TODO: Add new budget
+                if !isSelectionMode {
+                    Button("Select") {
+                        isSelectionMode = true
+                    }
                 }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelectionMode {
+                VStack {
+                    Divider()
+                    HStack {
+                        Button(action: {
+                            isSelectionMode = false
+                            selectedBudgets.removeAll()
+                        }) {
+                            Text("Cancel")
+                                .font(.body)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showingDeleteAlert = true
+                        }) {
+                            Text("Delete (\(selectedBudgets.count))")
+                                .font(.body)
+                                .foregroundColor(selectedBudgets.isEmpty ? .gray : .red)
+                        }
+                        .disabled(selectedBudgets.isEmpty)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                .background(Color(.systemBackground))
+            }
+        }
+        .sheet(isPresented: $showingEditBudget) {
+            EditBudgetView(month: selectedMonth, expenseCategories: expenseCategories)
+        }
+        .alert("Delete Budget\(selectedBudgets.count > 1 ? "s" : "")", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                if !isSelectionMode {
+                    selectedBudgets.removeAll()
+                }
+            }
+            Button("Delete", role: .destructive) {
+                deleteBudgets()
+            }
+        } message: {
+            if selectedBudgets.count == 1 {
+                if let budget = selectedBudgets.first {
+                    Text("Are you sure you want to delete the budget for \(budget.monthYear)? This action cannot be undone.")
+                }
+            } else {
+                Text("Are you sure you want to delete \(selectedBudgets.count) budgets? This action cannot be undone.")
+            }
+        }
+    }
+    
+    private func deleteBudgets() {
+        let calendar = Calendar.current
+        
+        // Delete associated category budgets for all selected budgets
+        for budget in selectedBudgets {
+            let associatedCategoryBudgets = categoryBudgets.filter { categoryBudget in
+                calendar.isDate(categoryBudget.month, equalTo: budget.month, toGranularity: .month)
+            }
+            
+            for categoryBudget in associatedCategoryBudgets {
+                modelContext.delete(categoryBudget)
+            }
+            
+            // Delete the monthly budget
+            modelContext.delete(budget)
+        }
+        
+        // Save changes
+        do {
+            try modelContext.save()
+            
+            // Exit selection mode after successful deletion
+            selectedBudgets.removeAll()
+            isSelectionMode = false
+            
+        } catch {
+            print("Failed to delete budgets: \(error)")
         }
     }
 }
 
 struct MonthlyBudgetRow: View {
     let budget: MonthlyBudget
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -338,6 +706,12 @@ struct MonthlyBudgetRow: View {
                 Text(budget.formattedTotalBudget)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                
+                if !isSelectionMode {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             HStack {
@@ -347,6 +721,7 @@ struct MonthlyBudgetRow: View {
                 
                 Spacer()
                 
+
                 Text(formatCurrency(budget.allocatedBudget))
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -365,6 +740,14 @@ struct MonthlyBudgetRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle()) // Makes entire row tappable
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
     
     private func formatCurrency(_ amount: Double) -> String {
