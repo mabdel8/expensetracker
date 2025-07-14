@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import StoreKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -177,6 +178,19 @@ struct SettingsView: View {
                     }
                     
                     Button(action: {
+                        requestAppReview()
+                    }) {
+                        HStack {
+                            Text("Rate the App")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                    
+                    Button(action: {
                         // TODO: Add privacy policy
                     }) {
                         HStack {
@@ -243,6 +257,12 @@ struct SettingsView: View {
             try modelContext.save()
         } catch {
             print("Failed to clear data: \(error)")
+        }
+    }
+    
+    private func requestAppReview() {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: windowScene)
         }
     }
 }
