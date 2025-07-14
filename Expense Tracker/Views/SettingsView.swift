@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  Expense Tracker
 //
-//  Created by Mohamed Abdelmagid on 7/9/25.
+//  Created by Abdalla Abdelmagid on 7/9/25.
 //
 
 import SwiftUI
@@ -11,7 +11,7 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [Category]
-    @Query private var budgets: [Budget]
+    @Query private var monthlyBudgets: [MonthlyBudget]
     @Query private var transactions: [Transaction]
     @Query private var recurringSubscriptions: [RecurringSubscription]
     
@@ -233,8 +233,8 @@ struct SettingsView: View {
             modelContext.delete(subscription)
         }
         
-        // Delete all budgets
-        for budget in budgets {
+        // Delete all monthly budgets
+        for budget in monthlyBudgets {
             modelContext.delete(budget)
         }
         
@@ -306,11 +306,40 @@ struct CategoryRow: View {
 
 struct BudgetsManagementView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var budgets: [Budget]
+    @Query private var monthlyBudgets: [MonthlyBudget]
+    @Query private var categoryBudgets: [CategoryBudget]
+    @Query private var categories: [Category]
+    
+    @State private var showingEditBudget = false
+    @State private var selectedMonth = Date()
+    @State private var showingDeleteAlert = false
+    @State private var isSelectionMode = false
+    @State private var selectedBudgets: Set<MonthlyBudget> = []
+    
+    private var expenseCategories: [Category] {
+        let filtered = categories.filter { $0.transactionType == .expense }
+        let desiredOrder = [
+            "Bills & Utilities",
+            "Food & Dining",
+            "Healthcare",
+            "Personal Care",
+            "Shopping",
+            "Entertainment",
+            "Transportation",
+            "Education",
+            "Travel"
+        ]
+        
+        return filtered.sorted { category1, category2 in
+            let index1 = desiredOrder.firstIndex(of: category1.name) ?? Int.max
+            let index2 = desiredOrder.firstIndex(of: category2.name) ?? Int.max
+            return index1 < index2
+        }
+    }
     
     var body: some View {
         List {
-            if budgets.isEmpty {
+            if monthlyBudgets.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "chart.bar.fill")
                         .font(.system(size: 48))
@@ -328,8 +357,50 @@ struct BudgetsManagementView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else {
-                ForEach(budgets, id: \.amount) { budget in
-                    BudgetRow(budget: budget)
+                ForEach(monthlyBudgets.sorted(by: { $0.month > $1.month }), id: \.month) { monthlyBudget in
+                    HStack {
+                        if isSelectionMode {
+                            Button(action: {
+                                if selectedBudgets.contains(monthlyBudget) {
+                                    selectedBudgets.remove(monthlyBudget)
+                                } else {
+                                    selectedBudgets.insert(monthlyBudget)
+                                }
+                            }) {
+                                Image(systemName: selectedBudgets.contains(monthlyBudget) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedBudgets.contains(monthlyBudget) ? .blue : .gray)
+                                    .font(.title2)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        
+                        MonthlyBudgetRow(
+                            monthlyBudget: monthlyBudget,
+                            isSelectionMode: isSelectionMode
+                        )
+                        .onTapGesture {
+                            if isSelectionMode {
+                                if selectedBudgets.contains(monthlyBudget) {
+                                    selectedBudgets.remove(monthlyBudget)
+                                } else {
+                                    selectedBudgets.insert(monthlyBudget)
+                                }
+                            } else {
+                                selectedMonth = monthlyBudget.month
+                                showingEditBudget = true
+                            }
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        if !isSelectionMode {
+                            Button(role: .destructive) {
+                                selectedBudgets = [monthlyBudget]
+                                showingDeleteAlert = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -337,50 +408,165 @@ struct BudgetsManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Add") {
-                    // TODO: Add new budget
+                if !isSelectionMode {
+                    Button("Select") {
+                        isSelectionMode = true
+                    }
                 }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelectionMode {
+                VStack {
+                    Divider()
+                    HStack {
+                        Button(action: {
+                            isSelectionMode = false
+                            selectedBudgets.removeAll()
+                        }) {
+                            Text("Cancel")
+                                .font(.body)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            showingDeleteAlert = true
+                        }) {
+                            Text("Delete (\(selectedBudgets.count))")
+                                .font(.body)
+                                .foregroundColor(selectedBudgets.isEmpty ? .gray : .red)
+                        }
+                        .disabled(selectedBudgets.isEmpty)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                .background(Color(.systemBackground))
+            }
+        }
+        .sheet(isPresented: $showingEditBudget) {
+            EditBudgetView(month: selectedMonth, expenseCategories: expenseCategories)
+        }
+        .alert("Delete Budget\(selectedBudgets.count > 1 ? "s" : "")", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {
+                if !isSelectionMode {
+                    selectedBudgets.removeAll()
+                }
+            }
+            Button("Delete", role: .destructive) {
+                deleteBudgets()
+            }
+        } message: {
+            if selectedBudgets.count == 1 {
+                if let budget = selectedBudgets.first {
+                    Text("Are you sure you want to delete the budget for \(budget.monthYear)? This action cannot be undone.")
+                }
+            } else {
+                Text("Are you sure you want to delete \(selectedBudgets.count) budgets? This action cannot be undone.")
+            }
+        }
+    }
+    
+    private func deleteBudgets() {
+        let calendar = Calendar.current
+        
+        // Delete associated category budgets for all selected budgets
+        for budget in selectedBudgets {
+            let associatedCategoryBudgets = categoryBudgets.filter { categoryBudget in
+                calendar.isDate(categoryBudget.month, equalTo: budget.month, toGranularity: .month)
+            }
+            
+            for categoryBudget in associatedCategoryBudgets {
+                modelContext.delete(categoryBudget)
+            }
+            
+            // Delete the monthly budget
+            modelContext.delete(budget)
+        }
+        
+        // Save changes
+        do {
+            try modelContext.save()
+            
+            // Exit selection mode after successful deletion
+            selectedBudgets.removeAll()
+            isSelectionMode = false
+            
+        } catch {
+            print("Failed to delete budgets: \(error)")
         }
     }
 }
 
-struct BudgetRow: View {
-    let budget: Budget
+struct MonthlyBudgetRow: View {
+    let monthlyBudget: MonthlyBudget
+    let isSelectionMode: Bool
+    @Query private var transactions: [Transaction]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(budget.category?.name ?? "Unknown Category")
+                Text(monthlyBudget.monthYear)
                     .font(.headline)
                 
                 Spacer()
                 
-                Text(budget.formattedAmount)
+                Text(monthlyBudget.formattedTotalBudget)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                
+                if !isSelectionMode {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             HStack {
-                Text("Progress")
+                Text("Allocated")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                Text("\(Int(budget.progressPercentage * 100))%")
+                Text(formatCurrency(monthlyBudget.allocatedBudget))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
-            ProgressView(value: budget.progressPercentage)
+            HStack {
+                Text("Spent")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                let spentAmount = monthlyBudget.getSpentAmount(from: transactions)
+                Text(formatCurrency(spentAmount))
+                    .font(.caption)
+                    .foregroundColor(spentAmount > monthlyBudget.totalBudget ? .red : .secondary)
+            }
+            
+            let progressPercentage = monthlyBudget.totalBudget > 0 ? monthlyBudget.getSpentAmount(from: transactions) / monthlyBudget.totalBudget : 0
+            ProgressView(value: progressPercentage)
                 .progressViewStyle(LinearProgressViewStyle())
+                .tint(progressPercentage > 1.0 ? .red : .blue)
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle()) // Makes entire row tappable
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
 }
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self, MonthlyBudget.self, CategoryBudget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, RecurringSubscription.self, MonthlyBudget.self, CategoryBudget.self], inMemory: true)
 } 

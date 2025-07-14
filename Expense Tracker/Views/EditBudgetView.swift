@@ -113,6 +113,14 @@ struct EditBudgetView: View {
                 }
             }
             .navigationBarHidden(true)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        hideKeyboard()
+                    }
+                }
+            }
             .onAppear {
                 loadExistingBudget()
                 initializeSubcategories()
@@ -139,14 +147,6 @@ struct EditBudgetView: View {
                         .fontWeight(.medium)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(PlainTextFieldStyle())
-                        .toolbar {
-                            ToolbarItemGroup(placement: .keyboard) {
-                                Spacer()
-                                Button("Done") {
-                                    hideKeyboard()
-                                }
-                            }
-                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -414,14 +414,6 @@ struct CategoryAllocationCard: View {
                             .textFieldStyle(PlainTextFieldStyle())
                             .frame(width: 60)
                             .multilineTextAlignment(.trailing)
-                            .toolbar {
-                                ToolbarItemGroup(placement: .keyboard) {
-                                    Spacer()
-                                    Button("Done") {
-                                        hideKeyboard()
-                                    }
-                                }
-                            }
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
@@ -553,14 +545,6 @@ struct SubcategoryRow: View {
                     .textFieldStyle(PlainTextFieldStyle())
                     .frame(width: 40)
                     .multilineTextAlignment(.trailing)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") {
-                                hideKeyboard()
-                            }
-                        }
-                    }
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)

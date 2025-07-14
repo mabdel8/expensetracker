@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-class MonthlyBudget {
+class MonthlyBudget: Hashable {
     var totalBudget: Double
     var month: Date // First day of the month
     
@@ -20,6 +20,15 @@ class MonthlyBudget {
     init(totalBudget: Double, month: Date) {
         self.totalBudget = totalBudget
         self.month = month
+    }
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(month)
+    }
+    
+    static func == (lhs: MonthlyBudget, rhs: MonthlyBudget) -> Bool {
+        return lhs.month == rhs.month
     }
     
     // Computed properties for convenience
