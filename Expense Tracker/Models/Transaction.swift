@@ -10,21 +10,19 @@ import SwiftData
 
 @Model
 class Transaction {
-    var name: String
-    var date: Date
-    var amount: Double
-    var notes: String?
-    var type: TransactionType // To distinguish between income and expense
+    var name: String = ""
+    var date: Date = Date()
+    var amount: Double = 0.0
+    var notes: String? = nil
+    var type: TransactionType = TransactionType.expense
     
-    // Relationship: A transaction belongs to one category
-    @Relationship(inverse: \Category.transactions)
+    // Relationship: A transaction belongs to one category (must be optional for CloudKit)
     var category: Category?
     
-    // Relationship: A transaction can be associated with a recurring subscription
-    @Relationship(inverse: \RecurringSubscription.transactions)
+    // Relationship: A transaction can be associated with a recurring subscription (must be optional for CloudKit)
     var recurringSubscription: RecurringSubscription?
     
-    init(name: String, date: Date, amount: Double, notes: String? = nil, type: TransactionType, category: Category? = nil, recurringSubscription: RecurringSubscription? = nil) {
+    init(name: String = "", date: Date = Date(), amount: Double = 0.0, notes: String? = nil, type: TransactionType = TransactionType.expense, category: Category? = nil, recurringSubscription: RecurringSubscription? = nil) {
         self.name = name
         self.date = date
         self.amount = amount
