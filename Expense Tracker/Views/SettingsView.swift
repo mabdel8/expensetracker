@@ -8,22 +8,28 @@
 import SwiftUI
 import SwiftData
 import StoreKit
+import CloudKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var categories: [Category]
+    @EnvironmentObject private var categoryManager: CategoryManager
     @Query private var monthlyBudgets: [MonthlyBudget]
     @Query private var transactions: [Transaction]
+    @Query private var categoryBudgets: [CategoryBudget]
     @Query private var recurringSubscriptions: [RecurringSubscription]
-    
+    @Query private var plannedIncomes: [PlannedIncome]
+    @Query private var plannedExpenses: [PlannedExpense]
+    @StateObject private var cloudKitManager = CloudKitManager()
+    @State private var showingBackupAlert = false
+    @State private var backupAlertMessage = ""
     @State private var showingClearDataAlert = false
     
     var expenseCategories: [Category] {
-        categories.filter { $0.transactionType == .expense }
+        categoryManager.categories.filter { $0.transactionType == .expense }
     }
     
     var incomeCategories: [Category] {
-        categories.filter { $0.transactionType == .income }
+        categoryManager.categories.filter { $0.transactionType == .income }
     }
     
 
@@ -60,6 +66,7 @@ struct SettingsView: View {
                     }
                 }
                 
+
                 Section("Data & Reports") {
                     NavigationLink(destination: AllTransactionsView()) {
                         HStack {
@@ -69,30 +76,51 @@ struct SettingsView: View {
                             Text("Transaction History")
                         }
                     }
+
+                Section("iCloud Backup") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: cloudKitManager.canBackup ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                .foregroundColor(cloudKitManager.canBackup ? .green : .orange)
+                            
+                            Text(cloudKitManager.iCloudStatusMessage)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let lastBackupDate = cloudKitManager.lastBackupDate {
+                            Text("Last backup: \(lastBackupDate.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if let error = cloudKitManager.backupError {
+                            Text("Error: \(error)")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    
+                    Button(action: {
+                        performBackup()
+                    }) {
+                        HStack {
+                            if cloudKitManager.isBackupInProgress {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Backing up...")
+                            } else {
+                                Label("Backup to iCloud", systemImage: "icloud.and.arrow.up")
+                            }
+                        }
+                    }
+                    .disabled(!cloudKitManager.canBackup || cloudKitManager.isBackupInProgress)
                     
                     Button(action: {
                         // TODO: Implement data export
                     }) {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.indigo)
-                                .frame(width: 20)
-                            Text("Export Data")
-                            Spacer()
-                        }
-                    }
-                    .foregroundColor(.primary)
-                    
-                    Button(action: {
-                        showingClearDataAlert = true
-                    }) {
-                        HStack {
-                            Image(systemName: "trash.fill")
-                                .foregroundColor(.red)
-                                .frame(width: 20)
-                            Text("Clear All Data")
-                            Spacer()
-                        }
+                        Label("Export Data", systemImage: "square.and.arrow.up")
                     }
                     .foregroundColor(.red)
                 }
@@ -117,6 +145,7 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+
                     }
                     .foregroundColor(.primary)
                     
@@ -146,84 +175,118 @@ struct SettingsView: View {
                     }
                     .foregroundColor(.primary)
                 }
+                
+                Section("Development Tools") {
+                    Button(action: {
+                        showingClearDataAlert = true
+                    }) {
+                        Label("Clear All Data", systemImage: "trash.fill")
+                            .foregroundColor(.red)
+                    }
+                    
+                    Button(action: {
+                        forceCreateDefaultCategories()
+                    }) {
+                        Label("Force Create Default Categories", systemImage: "folder.badge.plus")
+                            .foregroundColor(.orange)
+                    }
+                }
             }
             .navigationTitle("Settings")
+            .onAppear {
+                cloudKitManager.loadLastBackupDate()
+            }
+            .alert("Backup Status", isPresented: $showingBackupAlert) {
+                Button("OK") { }
+            } message: {
+                Text(backupAlertMessage)
+            }
             .alert("Clear All Data", isPresented: $showingClearDataAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Clear All", role: .destructive) {
                     clearAllData()
                 }
             } message: {
-                Text("This will permanently delete all your transactions, budgets, and categories. This action cannot be undone.")
+                Text("This will permanently delete all your data including transactions, categories, budgets, and subscriptions. This action cannot be undone.")
             }
         }
     }
     
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale.current
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+    private func performBackup() {
+        Task {
+            await cloudKitManager.performBackup(modelContext: modelContext)
+            
+            await MainActor.run {
+                if cloudKitManager.backupError == nil {
+                    backupAlertMessage = "Backup completed successfully!"
+                } else {
+                    backupAlertMessage = cloudKitManager.backupError ?? "Unknown error occurred"
+                }
+                showingBackupAlert = true
+            }
+        }
     }
     
     private func clearAllData() {
-        // Delete all transactions
-        for transaction in transactions {
-            modelContext.delete(transaction)
-        }
-        
-        // Delete all recurring subscriptions
-        for subscription in recurringSubscriptions {
-            modelContext.delete(subscription)
-        }
-        
-        // Delete all monthly budgets
-        for budget in monthlyBudgets {
-            modelContext.delete(budget)
-        }
-        
-        // Save changes
         do {
+            // Delete all transactions
+            for transaction in transactions {
+                modelContext.delete(transaction)
+            }
+            
+            // Delete all category budgets
+            for categoryBudget in categoryBudgets {
+                modelContext.delete(categoryBudget)
+            }
+            
+            // Delete all monthly budgets
+            for monthlyBudget in monthlyBudgets {
+                modelContext.delete(monthlyBudget)
+            }
+            
+            // Delete all recurring subscriptions
+            for subscription in recurringSubscriptions {
+                modelContext.delete(subscription)
+            }
+            
+            // Delete all planned incomes
+            for plannedIncome in plannedIncomes {
+                modelContext.delete(plannedIncome)
+            }
+            
+            // Delete all planned expenses
+            for plannedExpense in plannedExpenses {
+                modelContext.delete(plannedExpense)
+            }
+            
+            // Delete all categories
+            for category in categoryManager.categories {
+                modelContext.delete(category)
+            }
+            
+            // Save the context
             try modelContext.save()
+            
+            // Reset the category creation flag so defaults can be created again
+            UserDefaults.standard.removeObject(forKey: "HasAttemptedCategoryCreation")
+            
+            print("All data cleared successfully")
         } catch {
-            print("Failed to clear data: \(error)")
+            print("Error clearing data: \(error)")
         }
     }
     
-    private func requestAppReview() {
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            SKStoreReviewController.requestReview(in: windowScene)
-        }
+    private func forceCreateDefaultCategories() {
+        // Reset the flag and force create categories
+        UserDefaults.standard.removeObject(forKey: "HasAttemptedCategoryCreation")
+        DefaultCategories.createDefaultCategories(in: modelContext)
+        print("Forced default category creation completed")
     }
 }
 
 struct CategoriesManagementView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var categories: [Category]
-    @Query private var transactions: [Transaction]
-    
-    @State private var showingAddCategory = false
-    @State private var categoryToEdit: Category?
-    @State private var isSelectionMode = false
-    @State private var selectedCategories: Set<Category> = []
-    @State private var showingDeleteAlert = false
-    @State private var showingResetAlert = false
-    
-    private var expenseCategories: [Category] {
-        categories.filter { $0.transactionType == .expense }
-            .sorted { $0.name < $1.name }
-    }
-    
-    private var incomeCategories: [Category] {
-        categories.filter { $0.transactionType == .income }
-            .sorted { $0.name < $1.name }
-    }
-    
-    private var totalUsageCount: Int {
-        categories.reduce(0) { total, category in
-            total + (category.transactions?.count ?? 0)
-        }
-    }
+    @EnvironmentObject private var categoryManager: CategoryManager
     
     var body: some View {
         List {
@@ -431,97 +494,12 @@ struct CategoriesManagementView: View {
         }
     }
     
-    private func toggleSelection(for category: Category) {
-        if selectedCategories.contains(category) {
-            selectedCategories.remove(category)
-        } else {
-            selectedCategories.insert(category)
-        }
+    private var expenseCategories: [Category] {
+        categoryManager.categories.filter { $0.transactionType == .expense }
     }
     
-    private func deleteSelectedCategories() {
-        for category in selectedCategories {
-            // Delete associated transactions
-            if let transactions = category.transactions {
-                for transaction in transactions {
-                    modelContext.delete(transaction)
-                }
-            }
-            
-            // Delete the category
-            modelContext.delete(category)
-        }
-        
-        do {
-            try modelContext.save()
-            selectedCategories.removeAll()
-            isSelectionMode = false
-        } catch {
-            print("Failed to delete categories: \(error)")
-        }
-    }
-    
-    private func resetToDefaults() {
-        // Get all default category data
-        let defaultExpenseCategories = DefaultCategories.expenseCategories
-        let defaultIncomeCategories = DefaultCategories.incomeCategories
-        let allDefaultCategories = defaultExpenseCategories + defaultIncomeCategories
-        
-        // Create a set of default category names for quick lookup
-        let defaultCategoryNames = Set(allDefaultCategories.map { $0.name.lowercased() })
-        
-        // Find transactions that use custom categories (not in defaults)
-        var transactionsToUpdate: [Transaction] = []
-        
-        // Identify custom categories to delete
-        var categoriesToDelete: [Category] = []
-        
-        for category in categories {
-            if !defaultCategoryNames.contains(category.name.lowercased()) {
-                // This is a custom category, mark for deletion
-                categoriesToDelete.append(category)
-                
-                // Collect transactions that use this custom category
-                if let categoryTransactions = category.transactions {
-                    transactionsToUpdate.append(contentsOf: categoryTransactions)
-                }
-            }
-        }
-        
-        // Update transactions from custom categories to have no category
-        // Users can manually reassign them later
-        for transaction in transactionsToUpdate {
-            transaction.category = nil
-        }
-        
-        // Delete only custom categories
-        for category in categoriesToDelete {
-            modelContext.delete(category)
-        }
-        
-        // Create any missing default categories
-        for defaultCategoryData in allDefaultCategories {
-            let categoryExists = categories.contains { category in
-                category.name.lowercased() == defaultCategoryData.name.lowercased() &&
-                category.transactionType == defaultCategoryData.transactionType
-            }
-            
-            if !categoryExists {
-                let newCategory = Category(
-                    name: defaultCategoryData.name,
-                    iconName: defaultCategoryData.iconName,
-                    colorHex: defaultCategoryData.colorHex,
-                    transactionType: defaultCategoryData.transactionType
-                )
-                modelContext.insert(newCategory)
-            }
-        }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            print("Failed to reset categories: \(error)")
-        }
+    private var incomeCategories: [Category] {
+        categoryManager.categories.filter { $0.transactionType == .income }
     }
 }
 
@@ -590,35 +568,6 @@ struct CategoryRow: View {
 struct BudgetsManagementView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var monthlyBudgets: [MonthlyBudget]
-    @Query private var categoryBudgets: [CategoryBudget]
-    @Query private var categories: [Category]
-    
-    @State private var showingEditBudget = false
-    @State private var selectedMonth = Date()
-    @State private var showingDeleteAlert = false
-    @State private var isSelectionMode = false
-    @State private var selectedBudgets: Set<MonthlyBudget> = []
-    
-    private var expenseCategories: [Category] {
-        let filtered = categories.filter { $0.transactionType == .expense }
-        let desiredOrder = [
-            "Bills & Utilities",
-            "Food & Dining",
-            "Healthcare",
-            "Personal Care",
-            "Shopping",
-            "Entertainment",
-            "Transportation",
-            "Education",
-            "Travel"
-        ]
-        
-        return filtered.sorted { category1, category2 in
-            let index1 = desiredOrder.firstIndex(of: category1.name) ?? Int.max
-            let index2 = desiredOrder.firstIndex(of: category2.name) ?? Int.max
-            return index1 < index2
-        }
-    }
     
     var body: some View {
         List {
@@ -640,50 +589,10 @@ struct BudgetsManagementView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else {
-                ForEach(monthlyBudgets.sorted(by: { $0.month > $1.month }), id: \.month) { monthlyBudget in
-                    HStack {
-                        if isSelectionMode {
-                            Button(action: {
-                                if selectedBudgets.contains(monthlyBudget) {
-                                    selectedBudgets.remove(monthlyBudget)
-                                } else {
-                                    selectedBudgets.insert(monthlyBudget)
-                                }
-                            }) {
-                                Image(systemName: selectedBudgets.contains(monthlyBudget) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(selectedBudgets.contains(monthlyBudget) ? .blue : .gray)
-                                    .font(.title2)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        
-                        MonthlyBudgetRow(
-                            monthlyBudget: monthlyBudget,
-                            isSelectionMode: isSelectionMode
-                        )
-                        .onTapGesture {
-                            if isSelectionMode {
-                                if selectedBudgets.contains(monthlyBudget) {
-                                    selectedBudgets.remove(monthlyBudget)
-                                } else {
-                                    selectedBudgets.insert(monthlyBudget)
-                                }
-                            } else {
-                                selectedMonth = monthlyBudget.month
-                                showingEditBudget = true
-                            }
-                        }
-                    }
-                    .swipeActions(edge: .trailing) {
-                        if !isSelectionMode {
-                            Button(role: .destructive) {
-                                selectedBudgets = [monthlyBudget]
-                                showingDeleteAlert = true
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
+
+                ForEach(monthlyBudgets, id: \.totalBudget) { budget in
+                    MonthlyBudgetRow(budget: budget)
+
                 }
             }
         }
@@ -784,19 +693,17 @@ struct BudgetsManagementView: View {
 }
 
 struct MonthlyBudgetRow: View {
-    let monthlyBudget: MonthlyBudget
-    let isSelectionMode: Bool
-    @Query private var transactions: [Transaction]
-    
+    let budget: MonthlyBudget
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(monthlyBudget.monthYear)
+                Text(budget.monthYear)
                     .font(.headline)
                 
                 Spacer()
                 
-                Text(monthlyBudget.formattedTotalBudget)
+                Text(budget.formattedTotalBudget)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 
@@ -814,31 +721,33 @@ struct MonthlyBudgetRow: View {
                 
                 Spacer()
                 
-                Text(formatCurrency(monthlyBudget.allocatedBudget))
+
+                Text(formatCurrency(budget.allocatedBudget))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
             HStack {
-                Text("Spent")
+                Text("Remaining")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                let spentAmount = monthlyBudget.getSpentAmount(from: transactions)
-                Text(formatCurrency(spentAmount))
+                Text(formatCurrency(budget.remainingBudget))
                     .font(.caption)
-                    .foregroundColor(spentAmount > monthlyBudget.totalBudget ? .red : .secondary)
+                    .foregroundColor(budget.remainingBudget >= 0 ? .green : .red)
             }
-            
-            let progressPercentage = monthlyBudget.totalBudget > 0 ? monthlyBudget.getSpentAmount(from: transactions) / monthlyBudget.totalBudget : 0
-            ProgressView(value: progressPercentage)
-                .progressViewStyle(LinearProgressViewStyle())
-                .tint(progressPercentage > 1.0 ? .red : .blue)
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle()) // Makes entire row tappable
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
     
     private func formatCurrency(_ amount: Double) -> String {
@@ -851,5 +760,5 @@ struct MonthlyBudgetRow: View {
 
 #Preview {
     SettingsView()
-        .modelContainer(for: [Transaction.self, Category.self, RecurringSubscription.self, MonthlyBudget.self, CategoryBudget.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
 } 

@@ -7,8 +7,11 @@
 
 import SwiftUI
 import SwiftData
+import CloudKit
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var categoryManager = CategoryManager()
     @State private var showingAddTransaction = false
     @State private var selectedTab = 0
     
@@ -68,10 +71,15 @@ struct ContentView: View {
                 }
             }
         )
+        .environmentObject(categoryManager)
+        .onAppear {
+            categoryManager.initialize(with: modelContext)
+        }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
 }
+

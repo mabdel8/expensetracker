@@ -13,14 +13,14 @@ struct BudgetView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var monthlyBudgets: [MonthlyBudget]
     @Query private var categoryBudgets: [CategoryBudget]
-    @Query private var allCategories: [Category]
+    @EnvironmentObject private var categoryManager: CategoryManager
     @Query private var transactions: [Transaction]
     
     @State private var selectedMonth = Date()
     @State private var showingEditBudget = false
     
     private var expenseCategories: [Category] {
-        let filtered = allCategories.filter { $0.transactionType == .expense }
+        let filtered = categoryManager.categories.filter { $0.transactionType == .expense }
         let desiredOrder = [
             "Bills & Utilities",
             "Food & Dining",

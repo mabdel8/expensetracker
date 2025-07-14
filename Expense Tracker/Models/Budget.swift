@@ -9,12 +9,14 @@ import Foundation
 import SwiftData
 
 @Model
+
 class MonthlyBudget: Hashable {
-    var totalBudget: Double
-    var month: Date // First day of the month
+    var totalBudget: Double = 0.0
+    var month: Date = Date() // First day of the month
+
     
     // Relationship: A monthly budget has many category allocations
-    @Relationship(deleteRule: .cascade)
+    @Relationship(deleteRule: .cascade, inverse: \CategoryBudget.monthlyBudget)
     var categoryAllocations: [CategoryBudget]? = []
     
     init(totalBudget: Double, month: Date) {
@@ -71,15 +73,15 @@ class MonthlyBudget: Hashable {
 
 @Model
 class CategoryBudget {
-    var allocatedAmount: Double
-    var month: Date // First day of the month
+    var allocatedAmount: Double = 0.0
+    var month: Date = Date() // First day of the month
     
     // Relationship: A category budget belongs to one category
-    @Relationship(inverse: \Category.budgets)
+    // Note: Inverse relationship temporarily removed due to circular reference
     var category: Category?
     
     // Relationship: A category budget belongs to one monthly budget
-    @Relationship(inverse: \MonthlyBudget.categoryAllocations)
+    // Note: Inverse relationship temporarily removed due to circular reference
     var monthlyBudget: MonthlyBudget?
     
     init(allocatedAmount: Double, month: Date, category: Category?) {
@@ -119,52 +121,4 @@ class CategoryBudget {
     }
 }
 
-// Legacy Budget model - kept for backward compatibility if needed
-// This can be removed after migration
-@Model
-class Budget {
-    var amount: Double
-    var startDate: Date
-    var endDate: Date
-    
-    // Budget is tied to a specific expense category
-    var category: Category?
-    
-    init(amount: Double, startDate: Date, endDate: Date, category: Category?) {
-        self.amount = amount
-        self.startDate = startDate
-        self.endDate = endDate
-        self.category = category
-    }
-    
-    // Computed properties for convenience
-    var formattedAmount: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale.current
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
-    }
-    
-    var isActive: Bool {
-        let now = Date()
-        return now >= startDate && now <= endDate
-    }
-    
-    var durationInDays: Int {
-        Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0
-    }
-    
-    var remainingDays: Int {
-        let now = Date()
-        if now > endDate {
-            return 0
-        }
-        return Calendar.current.dateComponents([.day], from: now, to: endDate).day ?? 0
-    }
-    
-    var progressPercentage: Double {
-        let totalDays = durationInDays
-        let daysPassed = totalDays - remainingDays
-        return totalDays > 0 ? Double(daysPassed) / Double(totalDays) : 0
-    }
-} 
+ 

@@ -227,5 +227,5 @@ struct RecurringSubscriptionRow: View {
 
 #Preview {
     RecurringSubscriptionsView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
 } 

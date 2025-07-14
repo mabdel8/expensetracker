@@ -10,26 +10,33 @@ import SwiftData
 import SwiftUI
 
 @Model
-class Category: Hashable {
-    @Attribute(.unique)
-    var name: String
-    var iconName: String // SF Symbol name
-    var colorHex: String // Store color as a hex string
-    var transactionType: TransactionType // Is this an income or expense category?
+
+class Category {
+    var name: String = ""
+    var iconName: String = "questionmark.circle" // SF Symbol name
+    var colorHex: String = "0000FF" // Store color as a hex string
+    var transactionType: TransactionType = TransactionType.expense
+
     
-    // Relationship: A category can have many transactions
-    @Relationship(deleteRule: .cascade)
+    // Relationship: A category can have many transactions (must be optional for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \Transaction.category)
     var transactions: [Transaction]? = []
     
-    // Relationship: A category can have many recurring subscriptions
-    @Relationship(deleteRule: .cascade)
+    // Relationship: A category can have many recurring subscriptions (must be optional for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \RecurringSubscription.category)
     var recurringSubscriptions: [RecurringSubscription]? = []
     
-    // Relationship: A category can have many budget allocations
-    @Relationship(deleteRule: .cascade)
-    var budgets: [CategoryBudget]? = []
+
     
-    init(name: String, iconName: String, colorHex: String, transactionType: TransactionType) {
+    // Relationship: A category can have many planned expenses (must be optional for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \PlannedExpense.category)
+    var plannedExpenses: [PlannedExpense]? = []
+    
+    // Relationship: A category can have many category budgets (must be optional for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \CategoryBudget.category)
+    var categoryBudgets: [CategoryBudget]? = []
+    
+    init(name: String = "", iconName: String = "questionmark.circle", colorHex: String = "0000FF", transactionType: TransactionType = TransactionType.expense) {
         self.name = name
         self.iconName = iconName
         self.colorHex = colorHex
@@ -51,18 +58,7 @@ class Category: Hashable {
         Color(hex: colorHex) ?? .blue
     }
     
-    // Get budget allocation for a specific month
-    func getBudgetAllocation(for month: Date) -> CategoryBudget? {
-        let calendar = Calendar.current
-        return budgets?.first { budget in
-            calendar.isDate(budget.month, equalTo: month, toGranularity: .month)
-        }
-    }
-    
-    // Get allocated amount for a specific month
-    func getAllocatedAmount(for month: Date) -> Double {
-        return getBudgetAllocation(for: month)?.allocatedAmount ?? 0
-    }
+
 }
 
 // Extension to create Color from hex string

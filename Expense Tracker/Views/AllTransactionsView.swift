@@ -13,7 +13,7 @@ struct AllTransactionsView: View {
     @Environment(\.dismiss) private var dismiss
     
     @Query private var transactions: [Transaction]
-    @Query private var categories: [Category]
+    @EnvironmentObject private var categoryManager: CategoryManager
     
     @State private var selectedFilter: TransactionFilter = .all
     @State private var selectedSortOrder: SortOrder = .dateDescending
@@ -313,5 +313,5 @@ enum SortOrder: CaseIterable {
 
 #Preview {
     AllTransactionsView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
 } 
