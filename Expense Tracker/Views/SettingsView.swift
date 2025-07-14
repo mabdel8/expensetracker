@@ -477,7 +477,7 @@ struct CategoriesManagementView: View {
                 resetToDefaults()
             }
         } message: {
-            Text("This will delete all current categories and restore the default categories. All transactions will be updated to use default categories where possible. This action cannot be undone.")
+            Text("This will remove all custom categories and restore the default categories. Transactions using custom categories will be uncategorized and can be reassigned. This action cannot be undone.")
         }
     }
     
@@ -512,18 +512,60 @@ struct CategoriesManagementView: View {
     }
     
     private func resetToDefaults() {
-        // Delete all existing categories and their transactions
+        // Get all default category data
+        let defaultExpenseCategories = DefaultCategories.expenseCategories
+        let defaultIncomeCategories = DefaultCategories.incomeCategories
+        let allDefaultCategories = defaultExpenseCategories + defaultIncomeCategories
+        
+        // Create a set of default category names for quick lookup
+        let defaultCategoryNames = Set(allDefaultCategories.map { $0.name.lowercased() })
+        
+        // Find transactions that use custom categories (not in defaults)
+        var transactionsToUpdate: [Transaction] = []
+        
+        // Identify custom categories to delete
+        var categoriesToDelete: [Category] = []
+        
         for category in categories {
-            if let transactions = category.transactions {
-                for transaction in transactions {
-                    modelContext.delete(transaction)
+            if !defaultCategoryNames.contains(category.name.lowercased()) {
+                // This is a custom category, mark for deletion
+                categoriesToDelete.append(category)
+                
+                // Collect transactions that use this custom category
+                if let categoryTransactions = category.transactions {
+                    transactionsToUpdate.append(contentsOf: categoryTransactions)
                 }
             }
+        }
+        
+        // Update transactions from custom categories to have no category
+        // Users can manually reassign them later
+        for transaction in transactionsToUpdate {
+            transaction.category = nil
+        }
+        
+        // Delete only custom categories
+        for category in categoriesToDelete {
             modelContext.delete(category)
         }
         
-        // Create default categories
-        DefaultCategories.createDefaultCategories(in: modelContext)
+        // Create any missing default categories
+        for defaultCategoryData in allDefaultCategories {
+            let categoryExists = categories.contains { category in
+                category.name.lowercased() == defaultCategoryData.name.lowercased() &&
+                category.transactionType == defaultCategoryData.transactionType
+            }
+            
+            if !categoryExists {
+                let newCategory = Category(
+                    name: defaultCategoryData.name,
+                    iconName: defaultCategoryData.iconName,
+                    colorHex: defaultCategoryData.colorHex,
+                    transactionType: defaultCategoryData.transactionType
+                )
+                modelContext.insert(newCategory)
+            }
+        }
         
         do {
             try modelContext.save()
