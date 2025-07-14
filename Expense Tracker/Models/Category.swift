@@ -10,7 +10,7 @@ import SwiftData
 import SwiftUI
 
 @Model
-class Category {
+class Category: Hashable {
     @Attribute(.unique)
     var name: String
     var iconName: String // SF Symbol name
@@ -34,6 +34,16 @@ class Category {
         self.iconName = iconName
         self.colorHex = colorHex
         self.transactionType = transactionType
+    }
+    
+    // Hashable conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(transactionType)
+    }
+    
+    static func == (lhs: Category, rhs: Category) -> Bool {
+        return lhs.name == rhs.name && lhs.transactionType == rhs.transactionType
     }
     
     // Computed property to get Color from hex string
