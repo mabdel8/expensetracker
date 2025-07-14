@@ -32,8 +32,6 @@ struct SettingsView: View {
         categoryManager.categories.filter { $0.transactionType == .income }
     }
     
-
-    
     var body: some View {
         NavigationView {
             Form {
@@ -66,7 +64,6 @@ struct SettingsView: View {
                     }
                 }
                 
-
                 Section("Data & Reports") {
                     NavigationLink(destination: AllTransactionsView()) {
                         HStack {
@@ -76,6 +73,7 @@ struct SettingsView: View {
                             Text("Transaction History")
                         }
                     }
+                }
 
                 Section("iCloud Backup") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -125,8 +123,6 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
                 
-
-                
                 Section("About") {
                     HStack {
                         Text("Version")
@@ -145,7 +141,6 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-
                     }
                     .foregroundColor(.primary)
                     
@@ -227,6 +222,12 @@ struct SettingsView: View {
         }
     }
     
+    private func requestAppReview() {
+        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+            SKStoreReviewController.requestReview(in: scene)
+        }
+    }
+    
     private func clearAllData() {
         do {
             // Delete all transactions
@@ -287,6 +288,31 @@ struct SettingsView: View {
 struct CategoriesManagementView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var categoryManager: CategoryManager
+    @Query private var allCategories: [Category]
+    @Query private var transactions: [Transaction]
+    
+    @State private var isSelectionMode = false
+    @State private var selectedCategories: Set<Category> = []
+    @State private var showingAddCategory = false
+    @State private var categoryToEdit: Category?
+    @State private var showingDeleteAlert = false
+    @State private var showingResetAlert = false
+    
+    var categories: [Category] {
+        categoryManager.categories
+    }
+    
+    var expenseCategories: [Category] {
+        categories.filter { $0.transactionType == .expense }
+    }
+    
+    var incomeCategories: [Category] {
+        categories.filter { $0.transactionType == .income }
+    }
+    
+    var totalUsageCount: Int {
+        transactions.count
+    }
     
     var body: some View {
         List {
@@ -494,12 +520,43 @@ struct CategoriesManagementView: View {
         }
     }
     
-    private var expenseCategories: [Category] {
-        categoryManager.categories.filter { $0.transactionType == .expense }
+    private func toggleSelection(for category: Category) {
+        if selectedCategories.contains(category) {
+            selectedCategories.remove(category)
+        } else {
+            selectedCategories.insert(category)
+        }
     }
     
-    private var incomeCategories: [Category] {
-        categoryManager.categories.filter { $0.transactionType == .income }
+    private func deleteSelectedCategories() {
+        for category in selectedCategories {
+            modelContext.delete(category)
+        }
+        
+        do {
+            try modelContext.save()
+            selectedCategories.removeAll()
+            isSelectionMode = false
+        } catch {
+            print("Failed to delete categories: \(error)")
+        }
+    }
+    
+    private func resetToDefaults() {
+        // Delete all existing categories
+        for category in categories {
+            modelContext.delete(category)
+        }
+        
+        // Reset the flag and create defaults
+        UserDefaults.standard.removeObject(forKey: "HasAttemptedCategoryCreation")
+        DefaultCategories.createDefaultCategories(in: modelContext)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Failed to reset categories: \(error)")
+        }
     }
 }
 
@@ -567,7 +624,19 @@ struct CategoryRow: View {
 
 struct BudgetsManagementView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var categoryManager: CategoryManager
     @Query private var monthlyBudgets: [MonthlyBudget]
+    @Query private var categoryBudgets: [CategoryBudget]
+    
+    @State private var isSelectionMode = false
+    @State private var selectedBudgets: Set<MonthlyBudget> = []
+    @State private var showingEditBudget = false
+    @State private var showingDeleteAlert = false
+    @State private var selectedMonth = Date()
+    
+    var expenseCategories: [Category] {
+        categoryManager.categories.filter { $0.transactionType == .expense }
+    }
     
     var body: some View {
         List {
@@ -589,10 +658,19 @@ struct BudgetsManagementView: View {
                 .frame(maxWidth: .infinity)
                 .padding(40)
             } else {
-
-                ForEach(monthlyBudgets, id: \.totalBudget) { budget in
-                    MonthlyBudgetRow(budget: budget)
-
+                ForEach(monthlyBudgets, id: \.month) { budget in
+                    MonthlyBudgetRow(
+                        budget: budget,
+                        isSelectionMode: isSelectionMode,
+                        isSelected: selectedBudgets.contains(budget),
+                        onToggleSelection: {
+                            toggleSelection(for: budget)
+                        },
+                        onEdit: {
+                            selectedMonth = budget.month
+                            showingEditBudget = true
+                        }
+                    )
                 }
             }
         }
@@ -600,7 +678,12 @@ struct BudgetsManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                if !isSelectionMode {
+                if isSelectionMode {
+                    Button("Cancel") {
+                        isSelectionMode = false
+                        selectedBudgets.removeAll()
+                    }
+                } else {
                     Button("Select") {
                         isSelectionMode = true
                     }
@@ -661,6 +744,14 @@ struct BudgetsManagementView: View {
         }
     }
     
+    private func toggleSelection(for budget: MonthlyBudget) {
+        if selectedBudgets.contains(budget) {
+            selectedBudgets.remove(budget)
+        } else {
+            selectedBudgets.insert(budget)
+        }
+    }
+    
     private func deleteBudgets() {
         let calendar = Calendar.current
         
@@ -694,60 +785,74 @@ struct BudgetsManagementView: View {
 
 struct MonthlyBudgetRow: View {
     let budget: MonthlyBudget
+    let isSelectionMode: Bool
+    let isSelected: Bool
+    let onToggleSelection: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(budget.monthYear)
-                    .font(.headline)
+        HStack(spacing: 12) {
+            if isSelectionMode {
+                Button(action: onToggleSelection) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isSelected ? .blue : .gray)
+                        .font(.title2)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(budget.monthYear)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Text(budget.formattedTotalBudget)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    if !isSelectionMode {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 
-                Spacer()
-                
-                Text(budget.formattedTotalBudget)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                if !isSelectionMode {
-                    Image(systemName: "chevron.right")
+                HStack {
+                    Text("Allocated")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(formatCurrency(budget.allocatedBudget))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
-            
-            HStack {
-                Text("Allocated")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
                 
-                Spacer()
-                
-
-                Text(formatCurrency(budget.allocatedBudget))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            HStack {
-                Text("Remaining")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Text(formatCurrency(budget.remainingBudget))
-                    .font(.caption)
-                    .foregroundColor(budget.remainingBudget >= 0 ? .green : .red)
+                HStack {
+                    Text("Remaining")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(formatCurrency(budget.remainingBudget))
+                        .font(.caption)
+                        .foregroundColor(budget.remainingBudget >= 0 ? .green : .red)
+                }
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle()) // Makes entire row tappable
-    }
-    
-    private func formatCurrency(_ amount: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale.current
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+        .padding(.vertical, isSelectionMode ? 8 : 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelectionMode {
+                onToggleSelection()
+            } else {
+                onEdit()
+            }
+        }
     }
     
     private func formatCurrency(_ amount: Double) -> String {

@@ -9,8 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-
-class MonthlyBudget: Hashable {
+class MonthlyBudget: Hashable, Equatable {
     var totalBudget: Double = 0.0
     var month: Date = Date() // First day of the month
 

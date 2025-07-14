@@ -29,18 +29,21 @@ struct AnalyticsView: View {
         let calendar = Calendar.current
         let now = Date()
         
+        let filtered: [Transaction]
         switch selectedTimeRange {
         case .month:
-            return transactions.filter { transaction in
+            filtered = transactions.filter { transaction in
                 calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
             }
         case .year:
             let yearComponents = calendar.dateComponents([.year], from: selectedYear)
-            return transactions.filter { transaction in
+            filtered = transactions.filter { transaction in
                 let transactionYear = calendar.component(.year, from: transaction.date)
                 return transactionYear == yearComponents.year
             }
         }
+        
+        return filtered
     }
     
     private var totalIncome: Double {
@@ -62,38 +65,66 @@ struct AnalyticsView: View {
         case .month:
             // Generate weekly data for the selected month
             var weeklyData: [IncomeExpenseData] = []
-            let startOfMonth = calendar.dateInterval(of: .month, for: selectedMonth)?.start ?? selectedMonth
-            let endOfMonth = calendar.dateInterval(of: .month, for: selectedMonth)?.end ?? selectedMonth
             
-            var currentDate = startOfMonth
+            // Get all transactions for the selected month (same approach as other views)
+            let monthTransactions = transactions.filter { transaction in
+                calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
+            }
+            
+            // Debug: Basic validation
+            // print("Monthly data: \(monthTransactions.count) total transactions")
+            
+            guard let monthInterval = calendar.dateInterval(of: .month, for: selectedMonth) else {
+                return []
+            }
+            
+            let startOfMonth = monthInterval.start
+            let endOfMonth = monthInterval.end
+            
+            // Calculate weeks more reliably
             var weekNumber = 1
+            var currentWeekStart = startOfMonth
             
-            while currentDate < endOfMonth {
-                let weekEnd = min(calendar.date(byAdding: .day, value: 6, to: currentDate) ?? currentDate, endOfMonth)
+            while currentWeekStart < endOfMonth && weekNumber <= 6 {
+                // Calculate the end of current week (6 days later or last day of month)
+                let theoreticalWeekEnd = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) ?? endOfMonth
+                let lastDayOfMonth = calendar.date(byAdding: .day, value: -1, to: endOfMonth) ?? endOfMonth
+                let currentWeekEnd = min(theoreticalWeekEnd, lastDayOfMonth)
                 
-                let weekTransactions = transactions.filter { transaction in
-                    transaction.date >= currentDate && transaction.date <= weekEnd
+                // Filter transactions for this week (using date components to ignore time)
+                let weekTransactions = monthTransactions.filter { transaction in
+                    let transactionDate = calendar.startOfDay(for: transaction.date)
+                    let weekStartDay = calendar.startOfDay(for: currentWeekStart)
+                    let weekEndDay = calendar.startOfDay(for: currentWeekEnd)
+                    return transactionDate >= weekStartDay && transactionDate <= weekEndDay
                 }
                 
                 let income = weekTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
-                let expenses = weekTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+                                let expenses = weekTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
                 
                 weeklyData.append(IncomeExpenseData(period: "Week \(weekNumber)", income: income, expenses: expenses))
                 
-                currentDate = calendar.date(byAdding: .day, value: 7, to: currentDate) ?? currentDate
+                // Move to next week (7 days)
+                guard let nextWeekStart = calendar.date(byAdding: .day, value: 7, to: currentWeekStart) else {
+                    break
+                }
+                currentWeekStart = nextWeekStart
                 weekNumber += 1
             }
             
             return weeklyData
             
         case .year:
-            // Generate monthly data for the selected year
+            // Generate monthly data for the selected year (this works fine)
             var monthlyData: [IncomeExpenseData] = []
             let yearComponents = calendar.dateComponents([.year], from: selectedYear)
-            let startOfYear = calendar.date(from: DateComponents(year: yearComponents.year, month: 1, day: 1)) ?? selectedYear
+            
+            guard let year = yearComponents.year else { return [] }
             
             for month in 1...12 {
-                let monthDate = calendar.date(from: DateComponents(year: yearComponents.year, month: month, day: 1)) ?? selectedYear
+                guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+                    continue
+                }
                 
                 let monthTransactions = transactions.filter { transaction in
                     calendar.isDate(transaction.date, equalTo: monthDate, toGranularity: .month)
@@ -116,12 +147,15 @@ struct AnalyticsView: View {
     private var monthlyTrends: [MonthlyTrend] {
         let calendar = Calendar.current
         let endDate = Date()
-        let startDate = calendar.date(byAdding: .month, value: -11, to: endDate) ?? endDate
+        guard let startDate = calendar.date(byAdding: .month, value: -11, to: endDate) else {
+            return []
+        }
         
         var trends: [MonthlyTrend] = []
         var currentDate = startDate
+        var monthCount = 0
         
-        while currentDate <= endDate {
+        while currentDate <= endDate && monthCount < 12 {
             let monthTransactions = transactions.filter { transaction in
                 calendar.isDate(transaction.date, equalTo: currentDate, toGranularity: .month)
             }
@@ -135,7 +169,11 @@ struct AnalyticsView: View {
             
             trends.append(MonthlyTrend(month: monthName, income: income, expenses: expenses))
             
-            currentDate = calendar.date(byAdding: .month, value: 1, to: currentDate) ?? currentDate
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentDate) else {
+                break
+            }
+            currentDate = nextMonth
+            monthCount += 1
         }
         
         return trends
@@ -249,21 +287,37 @@ struct AnalyticsView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Color(hex: "023047") ?? .blue)
             
-            if incomeVsExpensesData.allSatisfy({ $0.income == 0 && $0.expenses == 0 }) {
+            if incomeVsExpensesData.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "chart.bar.fill")
                         .font(.system(size: 48))
                         .foregroundColor(.gray.opacity(0.5))
                     
-                    Text("No data available")
+                    Text("No data available - Empty dataset")
                         .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .frame(height: 200)
+                .frame(maxWidth: .infinity)
+            } else if incomeVsExpensesData.allSatisfy({ $0.income == 0 && $0.expenses == 0 }) {
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.5))
+                    
+                    Text("No transactions found for this period")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Data points: \(incomeVsExpensesData.count)")
+                        .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .frame(height: 200)
                 .frame(maxWidth: .infinity)
             } else {
                 Chart {
-                    ForEach(incomeVsExpensesData, id: \.period) { data in
+                    ForEach(incomeVsExpensesData) { data in
                         BarMark(
                             x: .value("Period", data.period),
                             y: .value("Amount", data.income),
@@ -345,7 +399,7 @@ struct AnalyticsView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 Chart {
-                    ForEach(monthlyTrends, id: \.month) { trend in
+                    ForEach(monthlyTrends) { trend in
                         LineMark(
                             x: .value("Month", trend.month),
                             y: .value("Income", trend.income)
@@ -536,13 +590,15 @@ struct QuickStatItem: View {
     }
 }
 
-struct IncomeExpenseData {
+struct IncomeExpenseData: Identifiable {
+    let id = UUID()
     let period: String
     let income: Double
     let expenses: Double
 }
 
-struct MonthlyTrend {
+struct MonthlyTrend: Identifiable {
+    let id = UUID()
     let month: String
     let income: Double
     let expenses: Double

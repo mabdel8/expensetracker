@@ -10,8 +10,7 @@ import SwiftData
 import SwiftUI
 
 @Model
-
-class Category {
+class Category: Equatable {
     var name: String = ""
     var iconName: String = "questionmark.circle" // SF Symbol name
     var colorHex: String = "0000FF" // Store color as a hex string
