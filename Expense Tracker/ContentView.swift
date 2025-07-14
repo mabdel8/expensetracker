@@ -26,11 +26,17 @@ struct ContentView: View {
                 }
                 .tag(1)
             
+            AnalyticsView()
+                .tabItem {
+                    Label("Analytics", systemImage: "chart.bar.fill")
+                }
+                .tag(2)
+            
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(2)
+                .tag(3)
         }
         .tint(Color(hex: "023047") ?? .blue)
         .sheet(isPresented: $showingAddTransaction) {

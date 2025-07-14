@@ -26,17 +26,7 @@ struct SettingsView: View {
         categories.filter { $0.transactionType == .income }
     }
     
-    private var totalTransactions: Int {
-        transactions.count
-    }
-    
-    private var totalSpent: Double {
-        transactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
-    }
-    
-    private var totalIncome: Double {
-        transactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
-    }
+
     
     var body: some View {
         NavigationView {
@@ -107,67 +97,7 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
                 
-                Section("Statistics") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Total Transactions")
-                                .font(.body)
-                            Text("\(totalTransactions)")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Categories")
-                                .font(.body)
-                            Text("\(categories.count)")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                        }
-                    }
-                    
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Total Income")
-                                .font(.body)
-                            Text(formatCurrency(totalIncome))
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.green)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Total Expenses")
-                                .font(.body)
-                            Text(formatCurrency(totalSpent))
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.red)
-                        }
-                    }
-                    
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Net Balance")
-                                .font(.body)
-                            Text(formatCurrency(totalIncome - totalSpent))
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(totalIncome - totalSpent >= 0 ? .green : .red)
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("Subscriptions")
-                                .font(.body)
-                            Text("\(recurringSubscriptions.count)")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.purple)
-                        }
-                    }
-                }
+
                 
                 Section("About") {
                     HStack {
