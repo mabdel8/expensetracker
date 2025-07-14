@@ -49,35 +49,76 @@ struct DefaultCategories {
     ]
     
     static func createDefaultCategories(in context: ModelContext) {
-        // Check if categories already exist
-        let descriptor = FetchDescriptor<Category>()
-        let existingCategories = try? context.fetch(descriptor)
-        
-        if existingCategories?.isEmpty ?? true {
+        do {
+            // Get all existing categories first
+            let allCategoriesDescriptor = FetchDescriptor<Category>()
+            let existingCategories = try context.fetch(allCategoriesDescriptor)
+            let existingCategoryNames = Set(existingCategories.map { $0.name })
+            
+            print("Found \(existingCategories.count) existing categories: \(existingCategoryNames)")
+            
+            // Check if any default categories already exist
+            let allDefaultCategories = expenseCategories + incomeCategories
+            let defaultCategoryNames = Set(allDefaultCategories.map { $0.name })
+            
+            // Check for any overlap between existing and default categories
+            let overlappingCategories = existingCategoryNames.intersection(defaultCategoryNames)
+            
+            if !overlappingCategories.isEmpty {
+                print("Default categories already exist (\(overlappingCategories.count) found): \(overlappingCategories)")
+                print("Skipping default category creation to prevent duplicates")
+                return
+            }
+            
+            // If we have any categories at all, be extra cautious
+            if !existingCategories.isEmpty {
+                print("Found \(existingCategories.count) existing categories, checking if they might be defaults with different names...")
+                
+                // Check if we have categories that look like defaults (same count as our defaults)
+                if existingCategories.count >= (expenseCategories.count + incomeCategories.count) / 2 {
+                    print("Sufficient categories already exist, skipping default creation")
+                    return
+                }
+            }
+            
+            print("No conflicting categories found. Creating default categories...")
+            
             // Create expense categories
             for categoryData in expenseCategories {
-                let category = Category(
-                    name: categoryData.name,
-                    iconName: categoryData.iconName,
-                    colorHex: categoryData.colorHex,
-                    transactionType: categoryData.transactionType
-                )
-                context.insert(category)
+                // Double-check this specific category doesn't exist
+                if !existingCategoryNames.contains(categoryData.name) {
+                    let category = Category(
+                        name: categoryData.name,
+                        iconName: categoryData.iconName,
+                        colorHex: categoryData.colorHex,
+                        transactionType: categoryData.transactionType
+                    )
+                    context.insert(category)
+                    print("Created expense category: \(categoryData.name)")
+                }
             }
             
             // Create income categories
             for categoryData in incomeCategories {
-                let category = Category(
-                    name: categoryData.name,
-                    iconName: categoryData.iconName,
-                    colorHex: categoryData.colorHex,
-                    transactionType: categoryData.transactionType
-                )
-                context.insert(category)
+                // Double-check this specific category doesn't exist
+                if !existingCategoryNames.contains(categoryData.name) {
+                    let category = Category(
+                        name: categoryData.name,
+                        iconName: categoryData.iconName,
+                        colorHex: categoryData.colorHex,
+                        transactionType: categoryData.transactionType
+                    )
+                    context.insert(category)
+                    print("Created income category: \(categoryData.name)")
+                }
             }
             
             // Save the context
-            try? context.save()
+            try context.save()
+            print("Default categories created successfully")
+            
+        } catch {
+            print("Error setting up default categories: \(error)")
         }
     }
 }

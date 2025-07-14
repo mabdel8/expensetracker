@@ -9,94 +9,68 @@ import SwiftUI
 import SwiftData
 import Foundation
 
+
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
     @State private var amount = ""
-    @State private var selectedType: TransactionType = .expense
+    @State private var selectedType: TransactionType = TransactionType.expense
     @State private var selectedCategory: Category?
     @State private var date = Date()
     @State private var notes = ""
     @State private var isRecurring = false
-    @State private var selectedFrequency: RecurrenceFrequency = .monthly
+    @State private var selectedFrequency: RecurrenceFrequency = RecurrenceFrequency.monthly
     @FocusState private var isAmountFocused: Bool
     @FocusState private var isNameFocused: Bool
     
-    @Query private var categories: [Category]
+    @EnvironmentObject private var categoryManager: CategoryManager
     
     var availableCategories: [Category] {
-        categories.filter { $0.transactionType == selectedType }
+        categoryManager.categories.filter { $0.transactionType == selectedType }
     }
-    
-    // Color scheme based on the provided image
-    private let lightBlue = Color(red: 0.56, green: 0.79, blue: 0.90) // #8ECAE6
-    private let teal = Color(red: 0.13, green: 0.62, blue: 0.74) // #219EBC
-    private let darkTeal = Color(red: 0.01, green: 0.19, blue: 0.28) // #023047
-    private let yellow = Color(red: 1.0, green: 0.72, blue: 0.02) // #FFB703
-    private let orange = Color(red: 0.98, green: 0.52, blue: 0.0) // #FB8500
     
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // Header
                 headerSection
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
                 
                 // Main content
                 ScrollView {
-                    VStack(spacing: 24) {
-                        // Type Selector
+                    VStack(spacing: 16) {
+                        // Type Selector Card
                         typeSelector
                         
-                        // Amount Section
-                        amountSection
+                        // Amount and Description Card
+                        amountAndDescriptionCard
                         
-                        // Category Section
-                        categorySection
+                        // Category Card
+                        categoryCard
                         
-                        // Date Section
-                        dateSection
+                        // Date Card
+                        dateCard
                         
-                        // Notes Section
-                        notesSection
+                        // Notes Card
+                        notesCard
                         
-                        // Recurring Subscription Section
+                        // Recurring Subscription Card
                         if selectedType == .expense {
-                            recurringSection
+                            recurringCard
                         }
+                        
+                        Spacer(minLength: 20)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                    .padding(.top, 20)
                 }
                 
                 // Save and Cancel buttons
-                HStack(spacing: 16) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color.gray.opacity(0.1))
-                    .foregroundColor(.primary)
-                    .cornerRadius(16)
-                    
-                    Button("Save") {
-                        saveTransaction()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(canSave ? teal : Color.gray.opacity(0.3))
-                    .foregroundColor(.white)
-                    .cornerRadius(16)
-                    .disabled(!canSave)
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+                bottomButtons
             }
             .navigationBarHidden(true)
+            .background(Color.white)
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     if isAmountFocused {
@@ -104,7 +78,7 @@ struct AddTransactionView: View {
                         Button("Done") {
                             isAmountFocused = false
                         }
-                        .foregroundColor(teal)
+                        .foregroundColor(Color(hex: "219EBC") ?? .blue)
                     }
                 }
             }
@@ -120,7 +94,7 @@ struct AddTransactionView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.title2)
-                    .foregroundColor(darkTeal)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
             }
             
             Spacer()
@@ -128,27 +102,30 @@ struct AddTransactionView: View {
             Text("Add Transaction")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             Spacer()
             
-            // Placeholder for right side (matching image layout)
+            // Placeholder for right side
             Color.clear
                 .frame(width: 30, height: 30)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 10)
     }
     
     private var typeSelector: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Transaction Type")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             HStack(spacing: 12) {
                 Button(action: { 
                     selectedType = .income 
-                    selectedCategory = nil // Reset category when type changes
+                    selectedCategory = nil
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.up.right")
@@ -159,14 +136,14 @@ struct AddTransactionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(selectedType == .income ? teal : lightBlue.opacity(0.3))
-                    .foregroundColor(selectedType == .income ? .white : darkTeal)
-                    .cornerRadius(24)
+                    .background(selectedType == .income ? Color(hex: "219EBC") ?? .blue : Color.gray.opacity(0.1))
+                    .foregroundColor(selectedType == .income ? .white : Color(hex: "023047") ?? .blue)
+                    .cornerRadius(12)
                 }
                 
                 Button(action: { 
                     selectedType = .expense 
-                    selectedCategory = nil // Reset category when type changes
+                    selectedCategory = nil
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "arrow.down.right")
@@ -177,52 +154,57 @@ struct AddTransactionView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(selectedType == .expense ? orange : lightBlue.opacity(0.3))
-                    .foregroundColor(selectedType == .expense ? .white : darkTeal)
-                    .cornerRadius(24)
+                    .background(selectedType == .expense ? Color(hex: "FB8500") ?? .orange : Color.gray.opacity(0.1))
+                    .foregroundColor(selectedType == .expense ? .white : Color(hex: "023047") ?? .blue)
+                    .cornerRadius(12)
                 }
             }
         }
     }
     
-    private var amountSection: some View {
-        VStack(spacing: 16) {
+    private var amountAndDescriptionCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Transaction Details")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
+            
             VStack(alignment: .leading, spacing: 8) {
                 Text("Amount")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(darkTeal)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
                 
                 HStack {
                     Text("$")
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(darkTeal)
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     
                     TextField("0.00", text: $amount)
                         .keyboardType(.decimalPad)
                         .focused($isAmountFocused)
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(darkTeal)
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     
                     Spacer()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-                .background(Color(.systemGray6))
+                .background(Color(UIColor.systemBackground))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(isAmountFocused ? teal : Color.clear, lineWidth: 2)
+                        .stroke(isAmountFocused ? Color(hex: "219EBC") ?? .blue : Color.gray.opacity(0.3), lineWidth: 1)
                 )
             }
             
             VStack(alignment: .leading, spacing: 8) {
                 Text("Description")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(darkTeal)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
                 
                 TextField("Enter description", text: $name)
                     .focused($isNameFocused)
@@ -232,22 +214,22 @@ struct AddTransactionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 16)
-                    .background(Color(.systemGray6))
+                    .background(Color(UIColor.systemBackground))
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isNameFocused ? teal : Color.clear, lineWidth: 2)
+                            .stroke(isNameFocused ? Color(hex: "219EBC") ?? .blue : Color.gray.opacity(0.3), lineWidth: 1)
                     )
             }
         }
     }
     
-    private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var categoryCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Category")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
@@ -261,7 +243,7 @@ struct AddTransactionView: View {
                                 Text(category.name)
                                     .font(.caption)
                                     .fontWeight(.medium)
-                                    .foregroundColor(darkTeal)
+                                    .foregroundColor(Color(hex: "023047") ?? .blue)
                                     .multilineTextAlignment(.center)
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.8)
@@ -269,40 +251,39 @@ struct AddTransactionView: View {
                             .frame(width: 80, height: 90)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedCategory?.name == category.name ? (selectedType == .income ? teal : orange).opacity(0.1) : Color.clear)
+                                    .fill(selectedCategory?.name == category.name ? (selectedType == .income ? Color(hex: "219EBC") ?? .blue : Color(hex: "FB8500") ?? .orange).opacity(0.1) : Color.clear)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedCategory?.name == category.name ? (selectedType == .income ? teal : orange) : Color.clear, lineWidth: 2)
+                                    .stroke(selectedCategory?.name == category.name ? (selectedType == .income ? Color(hex: "219EBC") ?? .blue : Color(hex: "FB8500") ?? .orange) : Color.clear, lineWidth: 2)
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 4)
                 .padding(.vertical, 4)
             }
             .scrollClipDisabled()
         }
-        .padding(.vertical, 8)
     }
     
-    private var dateSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pick a date")
+    private var dateCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Date")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             HStack(spacing: 12) {
                 Image(systemName: "calendar")
-                    .foregroundColor(teal)
+                    .foregroundColor(Color(hex: "219EBC") ?? .blue)
                     .font(.system(size: 20))
                 
                 DatePicker("", selection: $date, displayedComponents: .date)
                     .labelsHidden()
                     .datePickerStyle(CompactDatePickerStyle())
-                    .accentColor(teal)
+                    .accentColor(Color(hex: "219EBC") ?? .blue)
                     .font(.body)
                 
                 Spacer()
@@ -310,46 +291,49 @@ struct AddTransactionView: View {
         }
     }
     
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var notesCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Notes (Optional)")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             TextField("Add additional details...", text: $notes, axis: .vertical)
                 .lineLimit(3...5)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
-                .background(Color(.systemGray6))
+                .background(Color(UIColor.systemBackground))
                 .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
         }
-        .padding(.bottom, 20)
     }
     
-    private var recurringSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var recurringCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Recurring Subscription")
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(darkTeal)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
             
             // Recurring Toggle
             HStack {
                 Toggle("Make this a recurring subscription", isOn: $isRecurring)
-                    .toggleStyle(SwitchToggleStyle(tint: teal))
+                    .toggleStyle(SwitchToggleStyle(tint: Color(hex: "219EBC") ?? .blue))
                     .font(.body)
-                    .foregroundColor(darkTeal)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
             }
             .padding(.vertical, 8)
             
             // Frequency Picker (only visible when recurring is enabled)
             if isRecurring {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Frequency")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(darkTeal)
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     
                     Picker("Frequency", selection: $selectedFrequency) {
                         ForEach(RecurrenceFrequency.allCases, id: \.self) { frequency in
@@ -357,18 +341,17 @@ struct AddTransactionView: View {
                         }
                     }
                     .pickerStyle(SegmentedPickerStyle())
-                    .background(lightBlue.opacity(0.1))
+                    .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
                 }
-                .padding(.top, 8)
                 .animation(.easeInOut(duration: 0.2), value: isRecurring)
                 
                 // Next Payment Date Preview
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Next Payment")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(darkTeal)
+                        .foregroundColor(Color(hex: "023047") ?? .blue)
                     
                     Text(formatNextPaymentDate())
                         .font(.body)
@@ -377,7 +360,32 @@ struct AddTransactionView: View {
                 .padding(.top, 8)
             }
         }
-        .padding(.bottom, 20)
+    }
+    
+    private var bottomButtons: some View {
+        HStack(spacing: 16) {
+            Button("Cancel") {
+                dismiss()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(Color.gray.opacity(0.1))
+            .foregroundColor(Color(hex: "023047") ?? .blue)
+            .cornerRadius(16)
+            
+            Button("Save") {
+                saveTransaction()
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(canSave ? Color(hex: "219EBC") ?? .blue : Color.gray.opacity(0.3))
+            .foregroundColor(.white)
+            .cornerRadius(16)
+            .disabled(!canSave)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 50)
     }
     
     private func formatNextPaymentDate() -> String {
@@ -433,5 +441,5 @@ struct AddTransactionView: View {
 
 #Preview {
     AddTransactionView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
 } 

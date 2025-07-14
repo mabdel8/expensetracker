@@ -12,7 +12,7 @@ import Charts
 struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var transactions: [Transaction]
-    @Query private var categories: [Category]
+    @EnvironmentObject private var categoryManager: CategoryManager
     
     @State private var currentDate = Date()
     @State private var selectedMonth = Date()
@@ -617,5 +617,5 @@ struct CalendarPageView: View {
 
 #Preview {
     DashboardView()
-        .modelContainer(for: [Transaction.self, Category.self, Budget.self, RecurringSubscription.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
 } 

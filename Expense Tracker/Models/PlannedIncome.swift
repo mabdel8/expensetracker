@@ -10,11 +10,11 @@ import SwiftData
 
 @Model
 class PlannedIncome {
-    var name: String
-    var amount: Double
-    var month: Date // Which month this planned income is for
+    var name: String = ""
+    var amount: Double = 0.0
+    var month: Date = Date()
     
-    init(name: String, amount: Double, month: Date) {
+    init(name: String = "", amount: Double = 0.0, month: Date = Date()) {
         self.name = name
         self.amount = amount
         self.month = month

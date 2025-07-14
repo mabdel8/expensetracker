@@ -43,25 +43,24 @@ enum RecurrenceFrequency: String, Codable, CaseIterable {
 
 @Model
 class RecurringSubscription {
-    var name: String
-    var amount: Double
-    var frequency: RecurrenceFrequency
-    var startDate: Date
-    var lastTransactionDate: Date?
-    var nextDueDate: Date
-    var isActive: Bool
-    var notes: String?
-    var type: TransactionType
+    var name: String = ""
+    var amount: Double = 0.0
+    var frequency: RecurrenceFrequency = RecurrenceFrequency.monthly
+    var startDate: Date = Date()
+    var lastTransactionDate: Date? = nil
+    var nextDueDate: Date = Date()
+    var isActive: Bool = true
+    var notes: String? = nil
+    var type: TransactionType = TransactionType.expense
     
-    // Relationship: A recurring subscription belongs to one category
-    @Relationship(inverse: \Category.recurringSubscriptions)
+    // Relationship: A recurring subscription belongs to one category (must be optional for CloudKit)
     var category: Category?
     
-    // Relationship: A recurring subscription can have many transactions
-    @Relationship(deleteRule: .nullify)
+    // Relationship: A recurring subscription can have many transactions (must be optional for CloudKit)
+    @Relationship(deleteRule: .nullify, inverse: \Transaction.recurringSubscription)
     var transactions: [Transaction]? = []
     
-    init(name: String, amount: Double, frequency: RecurrenceFrequency, startDate: Date, type: TransactionType, category: Category? = nil, notes: String? = nil) {
+    init(name: String = "", amount: Double = 0.0, frequency: RecurrenceFrequency = RecurrenceFrequency.monthly, startDate: Date = Date(), type: TransactionType = TransactionType.expense, category: Category? = nil, notes: String? = nil) {
         self.name = name
         self.amount = amount
         self.frequency = frequency

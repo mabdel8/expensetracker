@@ -10,14 +10,14 @@ import SwiftData
 
 @Model
 class PlannedExpense {
-    var name: String
-    var amount: Double
-    var month: Date // Which month this planned expense is for
+    var name: String = ""
+    var amount: Double = 0.0
+    var month: Date = Date()
     
-    // Relationship: A planned expense belongs to one category
+    // Relationship: A planned expense belongs to one category (must be optional for CloudKit)
     var category: Category?
     
-    init(name: String, amount: Double, month: Date, category: Category?) {
+    init(name: String = "", amount: Double = 0.0, month: Date = Date(), category: Category? = nil) {
         self.name = name
         self.amount = amount
         self.month = month
