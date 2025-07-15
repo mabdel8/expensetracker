@@ -19,7 +19,8 @@ struct Expense_TrackerApp: App {
             CategoryBudget.self,
             RecurringSubscription.self,
             PlannedIncome.self,
-            PlannedExpense.self
+            PlannedExpense.self,
+            Account.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

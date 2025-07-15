@@ -29,17 +29,23 @@ struct ContentView: View {
                 }
                 .tag(1)
             
+            AccountsView()
+                .tabItem {
+                    Label("Accounts", systemImage: "creditcard.fill")
+                }
+                .tag(2)
+            
             AnalyticsView()
                 .tabItem {
                     Label("Analytics", systemImage: "chart.bar.fill")
                 }
-                .tag(2)
+                .tag(3)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(4)
         }
         .tint(Color(hex: "023047") ?? .blue)
         .sheet(isPresented: $showingAddTransaction) {
@@ -80,6 +86,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self, PlannedIncome.self, PlannedExpense.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self, PlannedIncome.self, PlannedExpense.self, Account.self], inMemory: true)
 }
 
