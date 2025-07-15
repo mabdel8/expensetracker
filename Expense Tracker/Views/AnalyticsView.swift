@@ -27,7 +27,6 @@ struct AnalyticsView: View {
     
     private var filteredTransactions: [Transaction] {
         let calendar = Calendar.current
-        let now = Date()
         
         let filtered: [Transaction]
         switch selectedTimeRange {
@@ -144,39 +143,99 @@ struct AnalyticsView: View {
         }
     }
     
-    private var monthlyTrends: [MonthlyTrend] {
+
+    
+    private var expenseCategoriesData: [CategoryExpenseData] {
+        let expenseTransactions = filteredTransactions.filter { $0.type == .expense }
+        var categoryTotals: [String: Double] = [:]
+        
+        for transaction in expenseTransactions {
+            let categoryName = transaction.category?.name ?? "Uncategorized"
+            categoryTotals[categoryName, default: 0] += transaction.amount
+        }
+        
+        return categoryTotals.map { CategoryExpenseData(name: $0.key, amount: $0.value) }
+            .sorted { $0.amount > $1.amount }
+            .prefix(6)
+            .map { $0 }
+    }
+    
+    private var trendLineData: [TrendLineData] {
         let calendar = Calendar.current
-        let endDate = Date()
-        guard let startDate = calendar.date(byAdding: .month, value: -11, to: endDate) else {
-            return []
-        }
         
-        var trends: [MonthlyTrend] = []
-        var currentDate = startDate
-        var monthCount = 0
-        
-        while currentDate <= endDate && monthCount < 12 {
+        switch selectedTimeRange {
+        case .month:
+            // Generate weekly spending data for the selected month
+            var weeklyData: [TrendLineData] = []
+            
             let monthTransactions = transactions.filter { transaction in
-                calendar.isDate(transaction.date, equalTo: currentDate, toGranularity: .month)
+                calendar.isDate(transaction.date, equalTo: selectedMonth, toGranularity: .month)
             }
             
-            let income = monthTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
-            let expenses = monthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
-            
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMM"
-            let monthName = formatter.string(from: currentDate)
-            
-            trends.append(MonthlyTrend(month: monthName, income: income, expenses: expenses))
-            
-            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentDate) else {
-                break
+            guard let monthInterval = calendar.dateInterval(of: .month, for: selectedMonth) else {
+                return []
             }
-            currentDate = nextMonth
-            monthCount += 1
+            
+            let startOfMonth = monthInterval.start
+            let endOfMonth = monthInterval.end
+            
+            var weekNumber = 1
+            var currentWeekStart = startOfMonth
+            
+            while currentWeekStart < endOfMonth && weekNumber <= 6 {
+                let theoreticalWeekEnd = calendar.date(byAdding: .day, value: 6, to: currentWeekStart) ?? endOfMonth
+                let lastDayOfMonth = calendar.date(byAdding: .day, value: -1, to: endOfMonth) ?? endOfMonth
+                let currentWeekEnd = min(theoreticalWeekEnd, lastDayOfMonth)
+                
+                let weekTransactions = monthTransactions.filter { transaction in
+                    let transactionDate = calendar.startOfDay(for: transaction.date)
+                    let weekStartDay = calendar.startOfDay(for: currentWeekStart)
+                    let weekEndDay = calendar.startOfDay(for: currentWeekEnd)
+                    return transactionDate >= weekStartDay && transactionDate <= weekEndDay
+                }
+                
+                let expenses = weekTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+                
+                weeklyData.append(TrendLineData(period: "Week \(weekNumber)", value: expenses))
+                
+                guard let nextWeekStart = calendar.date(byAdding: .day, value: 7, to: currentWeekStart) else {
+                    break
+                }
+                currentWeekStart = nextWeekStart
+                weekNumber += 1
+            }
+            
+            return weeklyData
+            
+        case .year:
+            // Generate monthly savings data for the selected year
+            var monthlyData: [TrendLineData] = []
+            let yearComponents = calendar.dateComponents([.year], from: selectedYear)
+            
+            guard let year = yearComponents.year else { return [] }
+            
+            for month in 1...12 {
+                guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+                    continue
+                }
+                
+                let monthTransactions = transactions.filter { transaction in
+                    calendar.isDate(transaction.date, equalTo: monthDate, toGranularity: .month)
+                }
+                
+                let income = monthTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
+                let expenses = monthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
+                let savings = income - expenses
+                
+                let formatter = DateFormatter()
+                formatter.dateFormat = "MMM"
+                let monthName = formatter.string(from: monthDate)
+                
+                monthlyData.append(TrendLineData(period: monthName, value: savings))
+            }
+            
+            return monthlyData
         }
-        
-        return trends
     }
     
     var body: some View {
@@ -192,8 +251,11 @@ struct AnalyticsView: View {
                     // Income vs Expenses Chart
                     incomeVsExpensesChart
                     
-                    // Monthly Trends Chart
-                    monthlyTrendsChart
+                    // Expense Categories Donut Chart
+                    expenseCategoriesDonutChart
+                    
+                    // Trend Line Chart
+                    trendLineChart
                     
                     // Quick Stats
                     quickStats
@@ -201,9 +263,8 @@ struct AnalyticsView: View {
                     Spacer(minLength: 100)
                 }
                 .padding(.horizontal)
+                .padding(.top, 40)
             }
-            .navigationTitle("Analytics")
-            .navigationBarTitleDisplayMode(.inline)
         }
     }
     
@@ -317,7 +378,7 @@ struct AnalyticsView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 Chart {
-                    ForEach(incomeVsExpensesData) { data in
+                    ForEach(incomeVsExpensesData, id: \.period) { data in
                         BarMark(
                             x: .value("Period", data.period),
                             y: .value("Amount", data.income),
@@ -378,14 +439,101 @@ struct AnalyticsView: View {
         .padding(.bottom, 20)
     }
     
-    private var monthlyTrendsChart: some View {
+    private var expenseCategoriesDonutChart: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Monthly Trends")
+            Text("Spending Breakdown")
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(Color(hex: "023047") ?? .blue)
             
-            if monthlyTrends.allSatisfy({ $0.income == 0 && $0.expenses == 0 }) {
+            if expenseCategoriesData.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.donut")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.5))
+                    
+                    Text("No spending data")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .frame(height: 200)
+                .frame(maxWidth: .infinity)
+            } else {
+                HStack(spacing: 20) {
+                    // Pie Chart
+                    Chart(expenseCategoriesData.enumerated().map { IndexedCategoryData(index: $0.offset, category: $0.element) }, id: \.category.name) { indexedCategory in
+                        SectorMark(
+                            angle: .value("Amount", indexedCategory.category.amount),
+                            angularInset: 1.0
+                        )
+                        .foregroundStyle(categoryColor(for: indexedCategory.index))
+                        .cornerRadius(4)
+                    }
+                    .frame(width: 160, height: 160)
+                    
+                    // Legend
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(expenseCategoriesData.prefix(6).enumerated().map { IndexedCategoryData(index: $0.offset, category: $0.element) }, id: \.category.name) { indexedCategory in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(categoryColor(for: indexedCategory.index))
+                                    .frame(width: 12, height: 12)
+                                
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(indexedCategory.category.name)
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                    Text(formatCurrency(indexedCategory.category.amount))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Text("\(Int((indexedCategory.category.amount / expenseCategoriesData.reduce(0) { $0 + $1.amount }) * 100))%")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 8)
+            }
+        }
+        .padding(20)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .padding(.bottom, 20)
+    }
+    
+    private var trendLineChart: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(selectedTimeRange == .month ? "Weekly Spending Trend" : "Monthly Savings Trend")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color(hex: "023047") ?? .blue)
+                
+                if !trendLineData.isEmpty && !trendLineData.allSatisfy({ $0.value == 0 }) {
+                    let totalValue = selectedTimeRange == .month ? 
+                        trendLineData.reduce(0) { $0 + $1.value } :
+                        trendLineData.reduce(0) { $0 + $1.value }
+                    
+                    Text(formatCurrency(totalValue))
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text(selectedTimeRange == .month ? "Total spending" : "Total savings")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            if trendLineData.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 48))
@@ -397,46 +545,95 @@ struct AnalyticsView: View {
                 }
                 .frame(height: 200)
                 .frame(maxWidth: .infinity)
-            } else {
-                Chart {
-                    ForEach(monthlyTrends) { trend in
-                        LineMark(
-                            x: .value("Month", trend.month),
-                            y: .value("Income", trend.income)
-                        )
-                        .foregroundStyle(Color(hex: "219EBC") ?? .blue)
-                        .symbol(Circle())
-                        
-                        LineMark(
-                            x: .value("Month", trend.month),
-                            y: .value("Expenses", trend.expenses)
-                        )
-                        .foregroundStyle(.orange)
-                        .symbol(Circle())
-                    }
+            } else if trendLineData.allSatisfy({ $0.value == 0 }) {
+                VStack(spacing: 16) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray.opacity(0.5))
+                    
+                    Text(selectedTimeRange == .month ? "No spending recorded" : "No savings recorded")
+                        .font(.body)
+                        .foregroundColor(.secondary)
                 }
                 .frame(height: 200)
+                .frame(maxWidth: .infinity)
+            } else {
+                Chart {
+                    let maxValue = trendLineData.map { abs($0.value) }.max() ?? 1
+                    
+                    ForEach(trendLineData, id: \.period) { data in
+                        let intensity = min(1.0, abs(data.value) / maxValue)
+                        let baseOpacity = 0.6 + (intensity * 0.4) // Range from 0.6 to 1.0
+                        
+                        LineMark(
+                            x: .value("Period", data.period),
+                            y: .value("Value", data.value)
+                        )
+                        .foregroundStyle((Color(hex: "219EBC") ?? .blue).opacity(baseOpacity))
+                        .lineStyle(StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                        .interpolationMethod(.catmullRom)
+                        
+                        AreaMark(
+                            x: .value("Period", data.period),
+                            y: .value("Value", data.value)
+                        )
+                        .foregroundStyle(
+                            LinearGradient(colors: [(Color(hex: "219EBC") ?? .blue).opacity(baseOpacity * 0.8), (Color(hex: "219EBC") ?? .blue).opacity(baseOpacity * 0.3), Color.clear], startPoint: .top, endPoint: .bottom)
+                        )
+                        .interpolationMethod(.catmullRom)
+                    }
+                }
+                .frame(height: 250)
                 .chartYAxis {
-                    AxisMarks(position: .leading) { _ in
-                        AxisGridLine()
-                        AxisValueLabel()
+                    AxisMarks(position: .leading) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(.gray.opacity(0.3))
+                        
+                        if let doubleValue = value.as(Double.self) {
+                            AxisValueLabel {
+                                Text(formatCurrency(doubleValue))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(position: .bottom) { _ in
-                        AxisValueLabel()
+                    if selectedTimeRange == .year {
+                        AxisMarks(position: .bottom) { value in
+                            if let stringValue = value.as(String.self) {
+                                let shouldShowLabel = stringValue.hasPrefix("Jan") || 
+                                                    stringValue.hasPrefix("Apr") || 
+                                                    stringValue.hasPrefix("Jul") || 
+                                                    stringValue.hasPrefix("Oct") || 
+                                                    stringValue.hasPrefix("Dec")
+                                if shouldShowLabel {
+                                    AxisValueLabel()
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    } else {
+                        AxisMarks(position: .bottom) { _ in
+                            AxisValueLabel()
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-                .chartForegroundStyleScale([
-                    "Income": Color(hex: "219EBC") ?? .blue,
-                    "Expenses": .orange
-                ])
+                .chartPlotStyle { plotArea in
+                    plotArea
+                        .background(Color.gray.opacity(0.02))
+                        .cornerRadius(12)
+                }
+                .padding(.leading, 8)
+                .padding(.trailing, 8)
+                .padding(.top, 8)
             }
         }
-        .padding(20)
+        .padding(24)
         .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+        .cornerRadius(20)
+        .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: 4)
         .padding(.bottom, 20)
     }
     
@@ -597,11 +794,44 @@ struct IncomeExpenseData: Identifiable {
     let expenses: Double
 }
 
-struct MonthlyTrend: Identifiable {
+struct CategoryExpenseData: Identifiable {
     let id = UUID()
-    let month: String
-    let income: Double
-    let expenses: Double
+    let name: String
+    let amount: Double
+}
+
+struct IndexedCategoryData: Identifiable {
+    let id = UUID()
+    let index: Int
+    let category: CategoryExpenseData
+}
+
+struct TrendLineData: Identifiable {
+    let id = UUID()
+    let period: String
+    let value: Double
+}
+
+extension AnalyticsView {
+    private func categoryColor(for index: Int) -> Color {
+        // Carefully selected colors with maximum visual distinction
+        let colors: [Color] = [
+            Color(hex: "219EBC") ?? .blue,   // Light blue
+            .orange,                         // Orange
+            Color(hex: "023047") ?? .blue,   // Dark blue
+            .green,                          // Green
+            .purple,                         // Purple
+            .red,                            // Red
+            .yellow,                         // Yellow
+            .pink,                           // Pink
+            .mint,                           // Mint
+            .cyan,                           // Cyan
+            .brown,                          // Brown
+            Color(hex: "FF6B6B") ?? .red     // Coral red
+        ]
+        
+        return colors[index % colors.count]
+    }
 }
 
 #Preview {
