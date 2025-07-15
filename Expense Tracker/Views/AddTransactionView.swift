@@ -22,10 +22,12 @@ struct AddTransactionView: View {
     @State private var notes = ""
     @State private var isRecurring = false
     @State private var selectedFrequency: RecurrenceFrequency = RecurrenceFrequency.monthly
+    @State private var selectedAccount: Account?
     @FocusState private var isAmountFocused: Bool
     @FocusState private var isNameFocused: Bool
     
     @EnvironmentObject private var categoryManager: CategoryManager
+    @Query private var accounts: [Account]
     
     var availableCategories: [Category] {
         categoryManager.categories.filter { $0.transactionType == selectedType }
@@ -48,6 +50,9 @@ struct AddTransactionView: View {
                         
                         // Category Card
                         categoryCard
+                        
+                        // Account Card
+                        accountCard
                         
                         // Date Card
                         dateCard
@@ -268,6 +273,108 @@ struct AddTransactionView: View {
         }
     }
     
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Account (Optional)")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: "023047") ?? .blue)
+            
+            if accounts.isEmpty {
+                VStack(spacing: 12) {
+                    Text("No accounts available")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Add an account in the Accounts tab to track transactions by payment method.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, 20)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        // None option
+                        Button(action: {
+                            selectedAccount = nil
+                        }) {
+                            VStack(spacing: 8) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(selectedAccount == nil ? .white : Color(hex: "023047") ?? .blue)
+                                    .frame(width: 50, height: 50)
+                                    .background(selectedAccount == nil ? Color(hex: "023047") ?? .blue : Color.clear)
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(selectedAccount == nil ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
+                                    )
+                                
+                                Text("None")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(Color(hex: "023047") ?? .blue)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .frame(width: 80, height: 90)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedAccount == nil ? Color(hex: "023047")?.opacity(0.1) ?? .blue.opacity(0.1) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedAccount == nil ? Color(hex: "023047") ?? .blue : Color.clear, lineWidth: 2)
+                            )
+                        }
+                        
+                        // Account options
+                        ForEach(accounts, id: \.name) { account in
+                            Button(action: {
+                                selectedAccount = account
+                            }) {
+                                VStack(spacing: 8) {
+                                    Image(systemName: account.accountType.iconName)
+                                        .font(.system(size: 30))
+                                        .foregroundColor(selectedAccount?.name == account.name ? .white : Color(hex: "023047") ?? .blue)
+                                        .frame(width: 50, height: 50)
+                                        .background(selectedAccount?.name == account.name ? Color(hex: account.colorHex) ?? Color(hex: "219EBC") ?? .blue : Color.clear)
+                                        .clipShape(Circle())
+                                        .overlay(
+                                            Circle()
+                                                .stroke(selectedAccount?.name == account.name ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
+                                        )
+                                    
+                                    Text(account.name)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(Color(hex: "023047") ?? .blue)
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.8)
+                                }
+                                .frame(width: 80, height: 90)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(selectedAccount?.name == account.name ? Color(hex: account.colorHex)?.opacity(0.1) ?? Color(hex: "219EBC")?.opacity(0.1) ?? .blue.opacity(0.1) : Color.clear)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedAccount?.name == account.name ? Color(hex: account.colorHex) ?? Color(hex: "219EBC") ?? .blue : Color.clear, lineWidth: 2)
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 4)
+                }
+                .scrollClipDisabled()
+            }
+        }
+    }
+    
     private var dateCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Date")
@@ -414,6 +521,7 @@ struct AddTransactionView: View {
             
             // Create the initial transaction
             let initialTransaction = recurringSubscription.createTransaction()
+            initialTransaction.account = selectedAccount
             modelContext.insert(initialTransaction)
             
         } else {
@@ -424,7 +532,8 @@ struct AddTransactionView: View {
                 amount: amountValue,
                 notes: notes.isEmpty ? nil : notes,
                 type: selectedType,
-                category: selectedCategory
+                category: selectedCategory,
+                account: selectedAccount
             )
             
             modelContext.insert(transaction)
@@ -441,5 +550,5 @@ struct AddTransactionView: View {
 
 #Preview {
     AddTransactionView()
-        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self], inMemory: true)
+        .modelContainer(for: [Transaction.self, Category.self, MonthlyBudget.self, CategoryBudget.self, RecurringSubscription.self, Account.self], inMemory: true)
 } 

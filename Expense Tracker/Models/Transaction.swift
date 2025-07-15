@@ -22,7 +22,10 @@ class Transaction {
     // Relationship: A transaction can be associated with a recurring subscription (must be optional for CloudKit)
     var recurringSubscription: RecurringSubscription?
     
-    init(name: String = "", date: Date = Date(), amount: Double = 0.0, notes: String? = nil, type: TransactionType = TransactionType.expense, category: Category? = nil, recurringSubscription: RecurringSubscription? = nil) {
+    // Relationship: A transaction can be associated with an account (must be optional for CloudKit)
+    var account: Account?
+    
+    init(name: String = "", date: Date = Date(), amount: Double = 0.0, notes: String? = nil, type: TransactionType = TransactionType.expense, category: Category? = nil, recurringSubscription: RecurringSubscription? = nil, account: Account? = nil) {
         self.name = name
         self.date = date
         self.amount = amount
@@ -30,6 +33,7 @@ class Transaction {
         self.type = type
         self.category = category
         self.recurringSubscription = recurringSubscription
+        self.account = account
     }
     
     // Computed properties for convenience
